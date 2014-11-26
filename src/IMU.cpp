@@ -25,6 +25,8 @@
 
 #include"IMU.h"
 
+#include<QtMath>
+
 IMU::IMU(QQuickItem* parent) :
     QQuickItem(parent),
     gyroId(""),
@@ -44,6 +46,11 @@ IMU::IMU(QQuickItem* parent) :
             if(!sensor->connectToBackend()){
                 qDebug() << "Couldn't connect to" << identifier;
                 continue;
+            }
+
+            qDebug() << "Numdatarates: " << sensor->availableDataRates().size();
+            foreach(qrange const& range, sensor->availableDataRates()){
+                qDebug() << "Datarate: " << range.first << " " << range.second;
             }
             qDebug() << "Adding identifier" << identifier;
         }
@@ -78,6 +85,7 @@ void IMU::setGyroId(QString const& newId)
                 delete gyro;
                 gyro = newGyro;
                 connect(gyro,&QGyroscope::readingChanged,this,&IMU::gyroReadingChanged);
+                gyro->setDataRate(1000); //Probably will not go this high and will reach maximum
                 gyro->start();
             }
 
@@ -116,6 +124,7 @@ void IMU::setAccId(QString const& newId)
                 delete acc;
                 acc = newAcc;
                 connect(acc, &QAccelerometer::readingChanged, this, &IMU::accReadingChanged);
+                acc->setDataRate(1000); //Probably will not go this high and will reach maximum
                 acc->start();
             }
 
@@ -134,20 +143,30 @@ void IMU::setAccId(QString const& newId)
 
 void IMU::gyroReadingChanged()
 {
-    QGyroscopeReading* reading = gyro->reading();
-    if(lastGyroTimestamp > 0)
-        qDebug() << "Gyro delta t: " << (reading->timestamp() - lastGyroTimestamp)/1000000.0f; //Get deltaT in seconds
-    lastGyroTimestamp = reading->timestamp();
-    qDebug() << "Gyro: " << reading->x() << " " << reading->y() << " " << reading->z();
+    quint64 timestamp = gyro->reading()->timestamp();
+    qreal wx = qDegreesToRadians(gyro->reading()->x()); //Angular velocity around x axis in rad/s
+    qreal wy = qDegreesToRadians(gyro->reading()->y()); //Angular velocity around y axis in rad/s
+    qreal wz = qDegreesToRadians(gyro->reading()->z()); //Angular velocity around z axis in rad/s
+    if(lastGyroTimestamp > 0){
+        qreal deltaT = ((qreal)(timestamp - lastGyroTimestamp))/1000000.0f;
+        qDebug() << "Gyro delta t: " << deltaT; //Get deltaT in seconds
+    }
+    lastGyroTimestamp = timestamp;
+    qDebug() << "Gyro: " << wx << " " << wy << " " << wz;
 }
 
 void IMU::accReadingChanged()
 {
-    QAccelerometerReading* reading = acc->reading();
-    if(lastAccTimestamp > 0)
-        qDebug() << "Acc delta t: " << (reading->timestamp() - lastAccTimestamp)/1000000.0f; //Get deltaT in seconds
-    lastAccTimestamp = reading->timestamp();
-    qDebug() << "Acc: " << reading->x() << " " << reading->y() << " " << reading->z();
+    quint64 timestamp = acc->reading()->timestamp();
+    qreal ax = acc->reading()->x(); //Linear acceleration along x axis in m/s^2
+    qreal ay = acc->reading()->y(); //Linear acceleration along y axis in m/s^2
+    qreal az = acc->reading()->z(); //Linear acceleration along z axis in m/s^2
+    if(lastAccTimestamp > 0){
+        qreal deltaT = ((qreal)(timestamp - lastAccTimestamp))/1000000.0f;
+        qDebug() << "Acc delta t: " << deltaT; //Get deltaT in seconds
+    }
+    lastAccTimestamp = timestamp;
+    qDebug() << "Acc: " << ax << " " << ay << " " << az;
 }
 
 QVector3D IMU::getRotation()

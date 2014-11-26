@@ -10,4 +10,3 @@ Window {
         gyroId: "4"
     }
 }
-
