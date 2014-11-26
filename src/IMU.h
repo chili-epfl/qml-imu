@@ -27,10 +27,9 @@
 #define IMU_H
 
 #include<QQuickItem>
+#include<QtSensors/QSensor>
 #include<QVector3D>
 #include<QQuaternion>
-
-#include<opencv2/highgui/highgui.hpp>
 
 class IMU : public QQuickItem {
 Q_OBJECT

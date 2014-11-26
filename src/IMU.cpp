@@ -28,7 +28,20 @@
 IMU::IMU(QQuickItem* parent) :
     QQuickItem(parent)
 {
-
+    foreach(const QByteArray &type, QSensor::sensorTypes()) {
+        qDebug() << "Found type" << type;
+        foreach (const QByteArray &identifier, QSensor::sensorsForType(type)) {
+            qDebug() << "Found identifier" << identifier;
+            // Don't put in sensors we can't connect to
+            QSensor* sensor = new QSensor(type, this);
+            sensor->setIdentifier(identifier);
+            if(!sensor->connectToBackend()){
+                qDebug() << "Couldn't connect to" << identifier;
+                continue;
+            }
+            qDebug() << "Adding identifier" << identifier;
+        }
+    }
 }
 
 IMU::~IMU()

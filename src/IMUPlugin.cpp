@@ -25,7 +25,9 @@
 
 #include"IMUPlugin.h"
 
+#include"IMU.h"
+
 void IMUPlugin::registerTypes(const char* uri)
 {
-    //qmlRegisterType<CVCamera>(uri, 1, 0, "CVCamera");
+    qmlRegisterType<IMU>(uri, 1, 0, "IMU");
 }
