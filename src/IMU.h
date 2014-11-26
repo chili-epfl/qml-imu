@@ -143,6 +143,28 @@ signals:
 
 private:
 
+    /**
+     * @brief Attemps to open gyroscope with given id
+     *
+     * If successful, sets rate to maximum and starts sensor
+     *
+     * @param id Identifier of the sensor to be opened
+     *
+     * @return Whether successfully opened
+     */
+    bool openGyro(QByteArray const& id);
+
+    /**
+     * @brief Attempts to open accelerometer with given id
+     *
+     * If successful, sets rate to maximum and starts sensor
+     *
+     * @param id Identifier of the sensor to be opened
+     *
+     * @return Whether successfully opened
+     */
+    bool openAcc(QByteArray const& id);
+
     QString gyroId;
     QString accId;
 

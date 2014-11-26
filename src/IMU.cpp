@@ -36,31 +36,76 @@ IMU::IMU(QQuickItem* parent) :
     lastGyroTimestamp(0),
     lastAccTimestamp(0)
 {
-    foreach(const QByteArray &type, QSensor::sensorTypes()) {
-        qDebug() << "Found type" << type;
-        foreach (const QByteArray &identifier, QSensor::sensorsForType(type)) {
-            qDebug() << "Found identifier" << identifier;
-            // Don't put in sensors we can't connect to
-            QSensor* sensor = new QSensor(type, this);
-            sensor->setIdentifier(identifier);
-            if(!sensor->connectToBackend()){
-                qDebug() << "Couldn't connect to" << identifier;
-                continue;
-            }
 
-            qDebug() << "Numdatarates: " << sensor->availableDataRates().size();
-            foreach(qrange const& range, sensor->availableDataRates()){
-                qDebug() << "Datarate: " << range.first << " " << range.second;
+    //Open first encountered and valid gyroscope and accelerometer
+    for(auto const& type : QSensor::sensorTypes())
+        for(auto const& id : QSensor::sensorsForType(type))
+            if(type == "QGyroscope"){
+                if(openGyro(id))
+                    break;
             }
-            qDebug() << "Adding identifier" << identifier;
-        }
-    }
+            else if(type == "QAccelerometer"){
+                if(openAcc(id))
+                    break;
+            }
 }
 
 IMU::~IMU()
 {
     delete gyro;
     delete acc;
+}
+
+bool IMU::openGyro(QByteArray const& id)
+{
+    QGyroscope* newGyro = new QGyroscope(this);
+    newGyro->setIdentifier(id);
+
+    //Sensor is fine
+    if(newGyro->connectToBackend()){
+        gyroId = QString(id);
+        emit gyroIdChanged();
+        delete gyro;
+        gyro = newGyro;
+        connect(gyro, &QGyroscope::readingChanged, this, &IMU::gyroReadingChanged);
+        gyro->setDataRate(1000); //Probably will not go this high and will reach maximum
+        gyro->start();
+        qDebug() << "Opened gyroscope with identifier " << id;
+        return true;
+    }
+
+    //Sensor could not be opened for some reason
+    else{
+        qDebug() << "Error: Could not open gyroscope with identifier " << id;
+        delete newGyro;
+        return false;
+    }
+}
+
+bool IMU::openAcc(QByteArray const& id)
+{
+    QAccelerometer* newAcc = new QAccelerometer(this);
+    newAcc->setIdentifier(id);
+
+    //Sensor is fine
+    if(newAcc->connectToBackend()){
+        accId = QByteArray(id);
+        emit accIdChanged();
+        delete acc;
+        acc = newAcc;
+        connect(acc, &QAccelerometer::readingChanged, this, &IMU::accReadingChanged);
+        acc->setDataRate(1000); //Probably will not go this high and will reach maximum
+        acc->start();
+        qDebug() << "Opened accelerometer with identifier " << id;
+        return true;
+    }
+
+    //Sensor could not be opened for some reason
+    else{
+        qDebug() << "Error: Could not open accelerometer with identifier " << id;
+        delete newAcc;
+        return false;
+    }
 }
 
 QString IMU::getGyroId()
@@ -73,31 +118,11 @@ void IMU::setGyroId(QString const& newId)
     if(newId == gyroId)
         return;
 
-    for(auto const& id : QSensor::sensorsForType("QGyroscope")){
+    for(auto const& id : QSensor::sensorsForType("QGyroscope"))
         if(id == newId){
-            QGyroscope* newGyro = new QGyroscope(this);
-            newGyro->setIdentifier(id);
-
-            //Sensor is fine
-            if(newGyro->connectToBackend()){
-                gyroId = newId;
-                emit gyroIdChanged();
-                delete gyro;
-                gyro = newGyro;
-                connect(gyro,&QGyroscope::readingChanged,this,&IMU::gyroReadingChanged);
-                gyro->setDataRate(1000); //Probably will not go this high and will reach maximum
-                gyro->start();
-            }
-
-            //Sensor could not be opened for some reason
-            else{
-                qDebug() << "Error: Could not open gyroscope with identifier " << id;
-                delete newGyro;
-            }
-
+            openGyro(id);
             return;
         }
-    }
 
     qDebug() << "Error: Gyroscope with identifier " << newId << " not found.";
 }
@@ -112,31 +137,11 @@ void IMU::setAccId(QString const& newId)
     if(newId == accId)
         return;
 
-    for(auto const& id : QSensor::sensorsForType("QAccelerometer")){
+    for(auto const& id : QSensor::sensorsForType("QAccelerometer"))
         if(id == newId){
-            QAccelerometer* newAcc = new QAccelerometer(this);
-            newAcc->setIdentifier(id);
-
-            //Sensor is fine
-            if(newAcc->connectToBackend()){
-                accId = newId;
-                emit accIdChanged();
-                delete acc;
-                acc = newAcc;
-                connect(acc, &QAccelerometer::readingChanged, this, &IMU::accReadingChanged);
-                acc->setDataRate(1000); //Probably will not go this high and will reach maximum
-                acc->start();
-            }
-
-            //Sensor could not be opened for some reason
-            else{
-                qDebug() << "Error: Could not open accelerometer with identifier " << id;
-                delete newAcc;
-            }
-
+            openAcc(id);
             return;
         }
-    }
 
     qDebug() << "Error: Accelerometer with identifier " << newId << " not found.";
 }
