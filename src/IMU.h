@@ -35,6 +35,8 @@
 #include<QVector3D>
 #include<QQuaternion>
 
+#include"ExtendedKalmanFilter.h"
+
 class IMU : public QQuickItem {
 Q_OBJECT
     Q_DISABLE_COPY(IMU)
@@ -165,15 +167,40 @@ private:
      */
     bool openAcc(QByteArray const& id);
 
-    QString gyroId;
-    QString accId;
+    /**
+     * @brief Normalizes given quaternion to unit norm
+     *
+     * @param quat Quaternion to normalize
+     */
+    void normalizeQuat(cv::Mat& quat);
 
-    QGyroscope* gyro;
-    QAccelerometer* acc;
+    /**
+     * @brief Calculates and records the process value, i.e rotation w.r.t ground inertial frame
+     *
+     * @param wx Control input, i.e angular speed around x axis in rad/s
+     * @param wy Control input, i.e angular speed around y axis in rad/s
+     * @param wz Control input, i.e angular speed around z axis in rad/s
+     * @param deltaT Time since previous control measurement
+     */
+    void calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT);
 
-    quint64 lastGyroTimestamp;
-    quint64 lastAccTimestamp;
+    static const int CV_TYPE;       ///< CV_64F or CV_32f
+    static const qreal EPSILON;     ///< FLT_EPSILON or DBL_EPSILON
 
+    QString gyroId;                 ///< Gyroscope identifier, empty string when not open
+    QString accId;                  ///< Accelerometer identifier, empty string when not open
+
+    QGyroscope* gyro;               ///< Gyroscope sensor, nullptr when not open
+    QAccelerometer* acc;            ///< Accelerometer sensor, nullptr when not open
+
+    quint64 lastGyroTimestamp;      ///< Most recent gyroscope measurement timestamp
+    quint64 lastAccTimestamp;       ///< Most recent accelerometer measurement timestamp
+
+    ExtendedKalmanFilter filter;    ///< Filter that estimates current tilt and linear acceleration in ground frame
+
+    cv::Mat process;                ///< Temporary matrix to hold the calculated process value, the rotation
+    cv::Mat observation;            ///< Temporary matrix to hold the gravity observation, assumed to be accelerometer value
+    cv::Mat predictedObservation;   ///< Temporary matrix to hold what we expect gravity vector is based on rotation
 };
 
 #endif /* IMU_H */

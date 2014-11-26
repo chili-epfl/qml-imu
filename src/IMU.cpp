@@ -25,7 +25,14 @@
 
 #include"IMU.h"
 
+#include<type_traits>
+#include<cfloat>
+#include<cmath>
+
 #include<QtMath>
+
+const int IMU::CV_TYPE = std::is_same<qreal, double>::value ? CV_64F : CV_32F;
+const qreal IMU::EPSILON = std::is_same<qreal, double>::value ? DBL_EPSILON : FLT_EPSILON;
 
 IMU::IMU(QQuickItem* parent) :
     QQuickItem(parent),
@@ -34,7 +41,8 @@ IMU::IMU(QQuickItem* parent) :
     gyro(nullptr),
     acc(nullptr),
     lastGyroTimestamp(0),
-    lastAccTimestamp(0)
+    lastAccTimestamp(0),
+    filter(4, 3, CV_TYPE)
 {
 
     //Open first encountered and valid gyroscope and accelerometer
@@ -48,6 +56,11 @@ IMU::IMU(QQuickItem* parent) :
                 if(openAcc(id))
                     break;
             }
+
+    //Just do assumptions for initial values
+    process = (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+    observation = (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
+    predictedObservation = (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
 }
 
 IMU::~IMU()
@@ -172,6 +185,47 @@ void IMU::accReadingChanged()
     }
     lastAccTimestamp = timestamp;
     qDebug() << "Acc: " << ax << " " << ay << " " << az;
+}
+
+inline void IMU::normalizeQuat(cv::Mat& quat)
+{
+    qreal norm = sqrt(
+            quat.at<qreal>(0)*quat.at<qreal>(0) +
+            quat.at<qreal>(1)*quat.at<qreal>(1) +
+            quat.at<qreal>(2)*quat.at<qreal>(2) +
+            quat.at<qreal>(3)*quat.at<qreal>(3));
+
+    if(norm > EPSILON){
+        quat.at<qreal>(0) /= norm;
+        quat.at<qreal>(1) /= norm;
+        quat.at<qreal>(2) /= norm;
+        quat.at<qreal>(3) /= norm;
+    }
+    else{
+        quat.at<qreal>(0) = 1.0f;
+        quat.at<qreal>(1) = 0.0f;
+        quat.at<qreal>(2) = 0.0f;
+        quat.at<qreal>(3) = 0.0f;
+    }
+}
+
+void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
+{
+    cv::Mat newProcess;
+    process.copyTo(newProcess);
+
+    qreal q0 = process.at<qreal>(0);
+    qreal q1 = process.at<qreal>(1);
+    qreal q2 = process.at<qreal>(2);
+    qreal q3 = process.at<qreal>(3);
+
+    newProcess.at<qreal>(0) += 0.5f*deltaT*(-q1*wx - q2*wy - q3*wz);
+    newProcess.at<qreal>(1) += 0.5f*deltaT*(+q0*wx + q3*wy - q2*wz);
+    newProcess.at<qreal>(2) += 0.5f*deltaT*(-q3*wx + q0*wy + q1*wz);
+    newProcess.at<qreal>(3) += 0.5f*deltaT*(+q2*wx - q1*wy + q0*wz);
+
+    newProcess.copyTo(process);
+    normalizeQuat(process);
 }
 
 QVector3D IMU::getRotation()
