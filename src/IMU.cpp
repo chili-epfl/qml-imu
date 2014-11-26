@@ -61,6 +61,19 @@ IMU::IMU(QQuickItem* parent) :
     process = (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
     observation = (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
     predictedObservation = (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
+
+    //Process noise covariance matrix is deltaT*Q at each step
+    Q = (cv::Mat_<qreal>(4,4) <<
+            1.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   1.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   1.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   1.0f);
+
+    //Measurement noise covariance matrix
+    filter.observationNoiseCov = (cv::Mat_<qreal>(3,3) <<
+            1e-4f,  0.0f,   0.0f,
+            0.0f,   1e-4f,  0.0f,
+            0.0f,   0.0f,   1e-4f);
 }
 
 IMU::~IMU()
@@ -209,8 +222,10 @@ inline void IMU::normalizeQuat(cv::Mat& quat)
     }
 }
 
-inline void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
+void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
 {
+
+    //Calculate process value
     cv::Mat newProcess;
     process.copyTo(newProcess);
 
@@ -226,26 +241,42 @@ inline void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
 
     newProcess.copyTo(process);
     normalizeQuat(process);
+
+    //Calculate transition matrix
+    filter.transitionMatrix = (cv::Mat_<qreal>(4,4) <<
+            +1.0f,              -0.5f*deltaT*wx,    -0.5f*deltaT*wy,    -0.5f*deltaT*wz,
+            +0.5f*deltaT*wx,    +1.0f,              -0.5f*deltaT*wz,    +0.5f*deltaT*wy,
+            +0.5f*deltaT*wy,    +0.5f*deltaT*wz,    +1.0f               -0.5f*deltaT*wx,
+            +0.5f*deltaT*wz,    -0.5f*deltaT*wy,    +0.5f*deltaT*wx,    +1.0f);
+
+    //Calculate process covariance matrix
+    filter.processNoiseCov = Q*deltaT;
 }
 
-inline void IMU::calculateObservation(qreal ax, qreal ay, qreal az)
+void IMU::calculateObservation(qreal ax, qreal ay, qreal az)
 {
+
+    //Calculate observation
     observation.at<qreal>(0) = ax;
     observation.at<qreal>(1) = ay;
     observation.at<qreal>(2) = az;
-}
 
-inline void IMU::calculatePredictedObservation()
-{
-    qreal q0 = filter.statePost.at<qreal>(0);
-    qreal q1 = filter.statePost.at<qreal>(1);
-    qreal q2 = filter.statePost.at<qreal>(2);
-    qreal q3 = filter.statePost.at<qreal>(3);
+    //Calculate predicted observation
+    qreal q0 = filter.statePre.at<qreal>(0);
+    qreal q1 = filter.statePre.at<qreal>(1);
+    qreal q2 = filter.statePre.at<qreal>(2);
+    qreal q3 = filter.statePre.at<qreal>(3);
     const qreal g = 9.81f;
 
     predictedObservation.at<qreal>(0) = 2*(q1*q3 - q0*q2)*g;
     predictedObservation.at<qreal>(1) = 2*(q2*q3 + q0*q1)*g;
     predictedObservation.at<qreal>(2) = (q0*q0 - q1*q1 - q2*q2 + q3*q3)*g;
+
+    //Calculate observation matrix
+    filter.observationMatrix = (cv::Mat_<qreal>(3,4) <<
+            -2*g*q2,    +2*g*q3,    -2*g*q0,    +2*g*q1,
+            +2*g*q1,    +2*g*q0,    +2*g*q3,    +2*g*q2,
+            +2*g*q0,    -2*g*q1,    -2*g*q2,    +2*g*q3);
 }
 
 QVector3D IMU::getRotation()

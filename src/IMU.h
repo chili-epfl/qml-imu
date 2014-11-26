@@ -175,7 +175,12 @@ private:
     void normalizeQuat(cv::Mat& quat);
 
     /**
-     * @brief Calculates and records the process value, i.e rotation w.r.t ground inertial frame
+     * @brief Calculates and records the process values
+     *
+     * Calculates the following:
+     * Process value f(x'(k-1|k-1), U(k-1))
+     * Transition matrix F(k-1)
+     * Process noise covariance matrix Q(k-1)
      *
      * @param wx Control input, i.e angular speed around x axis in rad/s
      * @param wy Control input, i.e angular speed around y axis in rad/s
@@ -185,18 +190,18 @@ private:
     void calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT);
 
     /**
-     * @brief Sets the gravity observation vector to accelerometer measurements
+     * @brief Calculates and records predicted observation values
+     *
+     * Calculates the following:
+     * Observation value z(k)
+     * Predicted observation value h(x'(k|k+1))
+     * Observation matrix H(k)
      *
      * @param ax Measured linear acceleration along local x axis
      * @param ay Measured linear acceleration along local y axis
      * @param az Measured linear acceleration along local z axis
      */
     void calculateObservation(qreal ax, qreal ay, qreal az);
-
-    /**
-     * @brief Calculates predicted gravity vector using current rotation w.r.t ground inertial frame
-     */
-    void calculatePredictedObservation();
 
     static const int CV_TYPE;       ///< CV_64F or CV_32f
     static const qreal EPSILON;     ///< FLT_EPSILON or DBL_EPSILON
@@ -212,6 +217,7 @@ private:
 
     ExtendedKalmanFilter filter;    ///< Filter that estimates current tilt and linear acceleration in ground frame
 
+    cv::Mat Q;                      ///< Base for process noise covariance matrix
     cv::Mat process;                ///< Temporary matrix to hold the calculated process value, the rotation
     cv::Mat observation;            ///< Temporary matrix to hold the gravity observation, assumed to be accelerometer value
     cv::Mat predictedObservation;   ///< Temporary matrix to hold what we expect gravity vector is based on rotation
