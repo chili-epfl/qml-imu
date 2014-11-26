@@ -209,7 +209,7 @@ inline void IMU::normalizeQuat(cv::Mat& quat)
     }
 }
 
-void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
+inline void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
 {
     cv::Mat newProcess;
     process.copyTo(newProcess);
@@ -226,6 +226,26 @@ void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
 
     newProcess.copyTo(process);
     normalizeQuat(process);
+}
+
+inline void IMU::calculateObservation(qreal ax, qreal ay, qreal az)
+{
+    observation.at<qreal>(0) = ax;
+    observation.at<qreal>(1) = ay;
+    observation.at<qreal>(2) = az;
+}
+
+inline void IMU::calculatePredictedObservation()
+{
+    qreal q0 = filter.statePost.at<qreal>(0);
+    qreal q1 = filter.statePost.at<qreal>(1);
+    qreal q2 = filter.statePost.at<qreal>(2);
+    qreal q3 = filter.statePost.at<qreal>(3);
+    const qreal g = 9.81f;
+
+    predictedObservation.at<qreal>(0) = 2*(q1*q3 - q0*q2)*g;
+    predictedObservation.at<qreal>(1) = 2*(q2*q3 + q0*q1)*g;
+    predictedObservation.at<qreal>(2) = (q0*q0 - q1*q1 - q2*q2 + q3*q3)*g;
 }
 
 QVector3D IMU::getRotation()

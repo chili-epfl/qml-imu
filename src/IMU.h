@@ -184,6 +184,20 @@ private:
      */
     void calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT);
 
+    /**
+     * @brief Sets the gravity observation vector to accelerometer measurements
+     *
+     * @param ax Measured linear acceleration along local x axis
+     * @param ay Measured linear acceleration along local y axis
+     * @param az Measured linear acceleration along local z axis
+     */
+    void calculateObservation(qreal ax, qreal ay, qreal az);
+
+    /**
+     * @brief Calculates predicted gravity vector using current rotation w.r.t ground inertial frame
+     */
+    void calculatePredictedObservation();
+
     static const int CV_TYPE;       ///< CV_64F or CV_32f
     static const qreal EPSILON;     ///< FLT_EPSILON or DBL_EPSILON
 
