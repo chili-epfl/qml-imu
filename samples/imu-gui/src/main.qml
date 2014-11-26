@@ -7,6 +7,7 @@ Window {
 
     IMU{
         id: imu
+        gyroId: "4"
     }
 }
 

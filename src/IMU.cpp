@@ -26,7 +26,13 @@
 #include"IMU.h"
 
 IMU::IMU(QQuickItem* parent) :
-    QQuickItem(parent)
+    QQuickItem(parent),
+    gyroId(""),
+    accId(""),
+    gyro(nullptr),
+    acc(nullptr),
+    lastGyroTimestamp(0),
+    lastAccTimestamp(0)
 {
     foreach(const QByteArray &type, QSensor::sensorTypes()) {
         qDebug() << "Found type" << type;
@@ -46,7 +52,102 @@ IMU::IMU(QQuickItem* parent) :
 
 IMU::~IMU()
 {
+    delete gyro;
+    delete acc;
+}
 
+QString IMU::getGyroId()
+{
+    return gyroId;
+}
+
+void IMU::setGyroId(QString const& newId)
+{
+    if(newId == gyroId)
+        return;
+
+    for(auto const& id : QSensor::sensorsForType("QGyroscope")){
+        if(id == newId){
+            QGyroscope* newGyro = new QGyroscope(this);
+            newGyro->setIdentifier(id);
+
+            //Sensor is fine
+            if(newGyro->connectToBackend()){
+                gyroId = newId;
+                emit gyroIdChanged();
+                delete gyro;
+                gyro = newGyro;
+                connect(gyro,&QGyroscope::readingChanged,this,&IMU::gyroReadingChanged);
+                gyro->start();
+            }
+
+            //Sensor could not be opened for some reason
+            else{
+                qDebug() << "Error: Could not open gyroscope with identifier " << id;
+                delete newGyro;
+            }
+
+            return;
+        }
+    }
+
+    qDebug() << "Error: Gyroscope with identifier " << newId << " not found.";
+}
+
+QString IMU::getAccId()
+{
+    return accId;
+}
+
+void IMU::setAccId(QString const& newId)
+{
+    if(newId == accId)
+        return;
+
+    for(auto const& id : QSensor::sensorsForType("QAccelerometer")){
+        if(id == newId){
+            QAccelerometer* newAcc = new QAccelerometer(this);
+            newAcc->setIdentifier(id);
+
+            //Sensor is fine
+            if(newAcc->connectToBackend()){
+                accId = newId;
+                emit accIdChanged();
+                delete acc;
+                acc = newAcc;
+                connect(acc, &QAccelerometer::readingChanged, this, &IMU::accReadingChanged);
+                acc->start();
+            }
+
+            //Sensor could not be opened for some reason
+            else{
+                qDebug() << "Error: Could not open accelerometer with identifier " << id;
+                delete newAcc;
+            }
+
+            return;
+        }
+    }
+
+    qDebug() << "Error: Accelerometer with identifier " << newId << " not found.";
+}
+
+void IMU::gyroReadingChanged()
+{
+    QGyroscopeReading* reading = gyro->reading();
+    if(lastGyroTimestamp > 0)
+        qDebug() << "Gyro delta t: " << (reading->timestamp() - lastGyroTimestamp)/1000000.0f; //Get deltaT in seconds
+    lastGyroTimestamp = reading->timestamp();
+    qDebug() << "Gyro: " << reading->x() << " " << reading->y() << " " << reading->z();
+}
+
+void IMU::accReadingChanged()
+{
+    QAccelerometerReading* reading = acc->reading();
+    if(lastAccTimestamp > 0)
+        qDebug() << "Acc delta t: " << (reading->timestamp() - lastAccTimestamp)/1000000.0f; //Get deltaT in seconds
+    lastAccTimestamp = reading->timestamp();
+    qDebug() << "Acc: " << reading->x() << " " << reading->y() << " " << reading->z();
 }
 
 QVector3D IMU::getRotation()

@@ -28,12 +28,18 @@
 
 #include<QQuickItem>
 #include<QtSensors/QSensor>
+#include<QtSensors/QAccelerometer>
+#include<QtSensors/QAccelerometerReading>
+#include<QtSensors/QGyroscope>
+#include<QtSensors/QGyroscopeReading>
 #include<QVector3D>
 #include<QQuaternion>
 
 class IMU : public QQuickItem {
 Q_OBJECT
     Q_DISABLE_COPY(IMU)
+    Q_PROPERTY(QString gyroId READ getGyroId WRITE setGyroId NOTIFY gyroIdChanged)
+    Q_PROPERTY(QString accId READ getAccId WRITE setAccId NOTIFY accIdChanged)
     Q_PROPERTY(QVector3D rotation READ getRotation NOTIFY rotationChanged)
     Q_PROPERTY(QQuaternion rotationQuat READ getRotationQuat NOTIFY rotationChanged)
 
@@ -50,6 +56,38 @@ public:
      * @brief Destroys this IMU processor
      */
     ~IMU();
+
+    /**
+     * @brief Returns the current gyroscrope identifier, if any
+     *
+     * @return Current gyroscope identifier if exists and is opened, empty string if not
+     */
+    QString getGyroId();
+
+    /**
+     * @brief Sets the new gyroscope identifier and opens the corresponding device for data
+     *
+     * Identifier is set to empty string if device can't be opened
+     *
+     * @param gyroId New gyroscope identifier
+     */
+    void setGyroId(QString const& gyroId);
+
+    /**
+     * @brief Returns the current accelerometer identifier, if any
+     *
+     * @return Current accelerometer identifier if exists and is opened, empty string if not
+     */
+    QString getAccId();
+
+    /**
+     * @brief Sets the new accelerometer identifier and opens the corresponding device for data
+     *
+     * Identifier is set to empty string if device can't be opened
+     *
+     * @param accId New accelerometer identifier
+     */
+    void setAccId(QString const& accId);
 
     /**
      * @brief Returns the latest estimated rotation in angle-axis representation
@@ -74,12 +112,45 @@ public slots:
      */
     void changeParent(QQuickItem* parent);
 
+private slots:
+
+    /**
+     * @brief Called when a new gyroscope reading is available
+     */
+    void gyroReadingChanged();
+
+    /**
+     * @brief Called when a new accelerometer reading is available
+     */
+    void accReadingChanged();
+
 signals:
+
+    /**
+     * @brief Emitted when the gyroscope identifier changes
+     */
+    void gyroIdChanged();
+
+    /**
+     * @brief Emitted when the accelerometer identifier changes
+     */
+    void accIdChanged();
 
     /**
      * @brief Emitted when the estimated rotation is changed
      */
     void rotationChanged();
+
+private:
+
+    QString gyroId;
+    QString accId;
+
+    QGyroscope* gyro;
+    QAccelerometer* acc;
+
+    quint64 lastGyroTimestamp;
+    quint64 lastAccTimestamp;
 
 };
 
