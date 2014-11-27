@@ -68,7 +68,7 @@ cv::Mat const& ExtendedKalmanFilter::predict(cv::Mat const& process)
     cv::gemm(temp1, transitionMatrix, 1, processNoiseCov, 1, errorCovPre, cv::GEMM_2_T);
 
     //Handle the case when there will be measurement before the next predict
-    statePre.copyTo(statePost);
+    //statePre.copyTo(statePost); //We will do this outside after corrections
     errorCovPre.copyTo(errorCovPost);
 
     return statePre;

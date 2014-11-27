@@ -52,7 +52,7 @@
 #ifndef EXTENDEDKALMANFILTER_H
 #define EXTENDEDKALMANFILTER_H
 
-#include "opencv2/core.hpp"
+#include <opencv2/core.hpp>
 
 /**
  * @brief Standard EKF, see http://en.wikipedia.org/wiki/Extended_Kalman_filter

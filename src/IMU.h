@@ -175,6 +175,14 @@ private:
     void normalizeQuat(cv::Mat& quat);
 
     /**
+     * @brief Ensures the sign of the quaternion is right so that we prevent quaternion unwinding
+     *
+     * @param prevQuat Previous value of the quaternion
+     * @param quat Current value of the quaternion to be corrected
+     */
+    void shortestPathQuat(cv::Mat& prevQuat, cv::Mat& quat);
+
+    /**
      * @brief Calculates and records the process values
      *
      * Calculates the following:
@@ -221,6 +229,9 @@ private:
     cv::Mat process;                ///< Temporary matrix to hold the calculated process value, the rotation
     cv::Mat observation;            ///< Temporary matrix to hold the gravity observation, assumed to be accelerometer value
     cv::Mat predictedObservation;   ///< Temporary matrix to hold what we expect gravity vector is based on rotation
+
+    cv::Mat statePreHistory;        ///< Previous value of the a priori state for quaternion sign correction
+    cv::Mat statePostHistory;       ///< Previous value of the a posteriori state for quaternion sign correction
 };
 
 #endif /* IMU_H */

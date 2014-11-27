@@ -60,7 +60,9 @@ IMU::IMU(QQuickItem* parent) :
     //Just do assumptions for initial values
     process =           (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
     filter.statePre =   (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+    statePreHistory =   (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
     filter.statePost =  (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+    statePostHistory =  (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
 
     observation =           (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
     predictedObservation =  (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
@@ -74,9 +76,9 @@ IMU::IMU(QQuickItem* parent) :
 
     //Measurement noise covariance matrix
     filter.observationNoiseCov = (cv::Mat_<qreal>(3,3) <<
-            1e-4f,  0.0f,   0.0f,
-            0.0f,   1e-4f,  0.0f,
-            0.0f,   0.0f,   1e-4f);
+            1e+1f,  0.0f,   0.0f,
+            0.0f,   1e+1f,  0.0f,
+            0.0f,   0.0f,   1e+1f);
 }
 
 IMU::~IMU()
@@ -184,35 +186,21 @@ void IMU::gyroReadingChanged()
     if(lastGyroTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastGyroTimestamp))/1000000.0f;
         if(deltaT > 0){
+
+            //Calculate process value, transition matrix and process noise covariance matrix
             calculateProcess(wx,wy,wz,deltaT);
 
-
-            //cv::Mat& ref = filter.transitionMatrix;
-            //qDebug()<<"transition matrix";
-            //qDebug()<<ref.at<qreal>(0,0)<<" "<<ref.at<qreal>(0,1)<<" "<<ref.at<qreal>(0,2)<<" "<<ref.at<qreal>(0,3);
-            //qDebug()<<ref.at<qreal>(1,0)<<" "<<ref.at<qreal>(1,1)<<" "<<ref.at<qreal>(1,2)<<" "<<ref.at<qreal>(1,3);
-            //qDebug()<<ref.at<qreal>(2,0)<<" "<<ref.at<qreal>(2,1)<<" "<<ref.at<qreal>(2,2)<<" "<<ref.at<qreal>(2,3);
-            //qDebug()<<ref.at<qreal>(3,0)<<" "<<ref.at<qreal>(3,1)<<" "<<ref.at<qreal>(3,2)<<" "<<ref.at<qreal>(3,3);
-            //qDebug()<<"";
-
-
-
-            //cv::Mat& ref5 = filter.errorCovPost;
-            //qDebug()<<"errorcovpost";
-            //qDebug()<<ref5.at<qreal>(0,0)<<" "<<ref5.at<qreal>(0,1)<<" "<<ref5.at<qreal>(0,2)<<" "<<ref5.at<qreal>(0,3);
-            //qDebug()<<ref5.at<qreal>(1,0)<<" "<<ref5.at<qreal>(1,1)<<" "<<ref5.at<qreal>(1,2)<<" "<<ref5.at<qreal>(1,3);
-            //qDebug()<<ref5.at<qreal>(2,0)<<" "<<ref5.at<qreal>(2,1)<<" "<<ref5.at<qreal>(2,2)<<" "<<ref5.at<qreal>(2,3);
-            //qDebug()<<ref5.at<qreal>(3,0)<<" "<<ref5.at<qreal>(3,1)<<" "<<ref5.at<qreal>(3,2)<<" "<<ref5.at<qreal>(3,3);
-            //qDebug()<<"";
-
-
-
-
+            //Do prediction step
             filter.predict(process);
-            normalizeQuat(filter.statePre);
-            normalizeQuat(filter.statePost);
 
-            
+            //Ensure output quaternion is unit norm
+            normalizeQuat(filter.statePre);
+
+            //Ensure output quaternion doesn't unwind
+            shortestPathQuat(statePreHistory, filter.statePre);
+
+            //Ensure a posteriori state reflects prediction in case measurement doesn't occur
+            filter.statePre.copyTo(filter.statePost);
         }
     }
     lastGyroTimestamp = timestamp;
@@ -227,12 +215,18 @@ void IMU::accReadingChanged()
     if(lastAccTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastAccTimestamp))/1000000.0f;
         if(deltaT > 0){
+
+            //Calculate observation value, predicted observation value and observation matrix
             calculateObservation(ax, ay, az);
+
+            //Do correction step
             filter.correct(observation, predictedObservation);
-            //qDebug() << observation.at<qreal>(0) << " " << observation.at<qreal>(1) << " " << observation.at<qreal>(2);
-            //qDebug() << predictedObservation.at<qreal>(0) << " " << predictedObservation.at<qreal>(1) << " " << predictedObservation.at<qreal>(2);
+
+            //Ensure ouput quaternion is unit norm
             normalizeQuat(filter.statePost);
 
+            //Ensure output quaternion doesn't unwind
+            shortestPathQuat(statePostHistory, filter.statePost);
 
             //**********************************
             qreal theta = sqrt(
@@ -252,51 +246,8 @@ void IMU::accReadingChanged()
                 ry = filter.statePost.at<qreal>(2)*theta/sTheta2; //ry
                 rz = filter.statePost.at<qreal>(3)*theta/sTheta2; //rz
             }
-            //qDebug() << qRadiansToDegrees(rx) << " " << qRadiansToDegrees(ry) << " " << qRadiansToDegrees(rz);
+            qDebug() << qRadiansToDegrees(rx) << " " << qRadiansToDegrees(ry) << " " << qRadiansToDegrees(rz);
             //************************
-
-
-
-            //cv::Mat& ref4 = filter.observationMatrix;
-            //qDebug()<<"H";
-            //qDebug()<<ref4.at<qreal>(0,0)<<" "<<ref4.at<qreal>(0,1)<<" "<<ref4.at<qreal>(0,2)<<" "<<ref4.at<qreal>(0,3);
-            //qDebug()<<ref4.at<qreal>(1,0)<<" "<<ref4.at<qreal>(1,1)<<" "<<ref4.at<qreal>(1,2)<<" "<<ref4.at<qreal>(1,3);
-            //qDebug()<<ref4.at<qreal>(2,0)<<" "<<ref4.at<qreal>(2,1)<<" "<<ref4.at<qreal>(2,2)<<" "<<ref4.at<qreal>(2,3);
-            //qDebug()<<"";
-
-            //cv::Mat& ref5 = filter.errorCovPre;
-            //qDebug()<<"errorcovpre";
-            //qDebug()<<ref5.at<qreal>(0,0)<<" "<<ref5.at<qreal>(0,1)<<" "<<ref5.at<qreal>(0,2)<<" "<<ref5.at<qreal>(0,3);
-            //qDebug()<<ref5.at<qreal>(1,0)<<" "<<ref5.at<qreal>(1,1)<<" "<<ref5.at<qreal>(1,2)<<" "<<ref5.at<qreal>(1,3);
-            //qDebug()<<ref5.at<qreal>(2,0)<<" "<<ref5.at<qreal>(2,1)<<" "<<ref5.at<qreal>(2,2)<<" "<<ref5.at<qreal>(2,3);
-            //qDebug()<<ref5.at<qreal>(3,0)<<" "<<ref5.at<qreal>(3,1)<<" "<<ref5.at<qreal>(3,2)<<" "<<ref5.at<qreal>(3,3);
-            //qDebug()<<"";
-
-
-            //cv::Mat& ref3 = filter.temp2;
-            //qDebug()<<"temp2";
-            //qDebug()<<ref3.at<qreal>(0,0)<<" "<<ref3.at<qreal>(0,1)<<" "<<ref3.at<qreal>(0,2)<<" "<<ref3.at<qreal>(0,3);
-            //qDebug()<<ref3.at<qreal>(1,0)<<" "<<ref3.at<qreal>(1,1)<<" "<<ref3.at<qreal>(1,2)<<" "<<ref3.at<qreal>(1,3);
-            //qDebug()<<ref3.at<qreal>(2,0)<<" "<<ref3.at<qreal>(2,1)<<" "<<ref3.at<qreal>(2,2)<<" "<<ref3.at<qreal>(2,3);
-            //qDebug()<<"";
-
-
-            //cv::Mat& ref = filter.temp3;
-            //qDebug()<<"temp3";
-            //qDebug()<<ref.at<qreal>(0,0)<<" "<<ref.at<qreal>(0,1)<<" "<<ref.at<qreal>(0,2);
-            //qDebug()<<ref.at<qreal>(1,0)<<" "<<ref.at<qreal>(1,1)<<" "<<ref.at<qreal>(1,2);
-            //qDebug()<<ref.at<qreal>(2,0)<<" "<<ref.at<qreal>(2,1)<<" "<<ref.at<qreal>(2,2);
-            //qDebug()<<"";
-
-
-            //cv::Mat& ref2 = filter.gain;
-            //qDebug()<<"K";
-            //qDebug()<<ref2.at<qreal>(0,0)<<" "<<ref2.at<qreal>(0,1)<<" "<<ref2.at<qreal>(0,2)<<" "<<ref2.at<qreal>(0,3);
-            //qDebug()<<ref2.at<qreal>(1,0)<<" "<<ref2.at<qreal>(1,1)<<" "<<ref2.at<qreal>(1,2)<<" "<<ref2.at<qreal>(1,3);
-            //qDebug()<<ref2.at<qreal>(2,0)<<" "<<ref2.at<qreal>(2,1)<<" "<<ref2.at<qreal>(2,2)<<" "<<ref2.at<qreal>(2,3);
-            //qDebug()<<"";
-
-
         }
     }
     lastAccTimestamp = timestamp;
@@ -322,6 +273,26 @@ inline void IMU::normalizeQuat(cv::Mat& quat)
         quat.at<qreal>(2) = 0.0f;
         quat.at<qreal>(3) = 0.0f;
     }
+}
+
+inline void IMU::shortestPathQuat(cv::Mat& prevQuat, cv::Mat& quat)
+{
+    //If -q would be closer to q_prev than +q, replace new q with -q
+    //The following comes from the derivation of |q - q_prev|^2 - |-q - q_prev|^2
+    if(
+            quat.at<qreal>(0)*prevQuat.at<qreal>(0) +
+            quat.at<qreal>(1)*prevQuat.at<qreal>(1) +
+            quat.at<qreal>(2)*prevQuat.at<qreal>(2) +
+            quat.at<qreal>(3)*prevQuat.at<qreal>(3) < 0){
+        quat.at<qreal>(0) = -quat.at<qreal>(0);
+        quat.at<qreal>(1) = -quat.at<qreal>(1);
+        quat.at<qreal>(2) = -quat.at<qreal>(2);
+        quat.at<qreal>(3) = -quat.at<qreal>(3);
+    }
+    prevQuat.at<qreal>(0) = quat.at<qreal>(0);
+    prevQuat.at<qreal>(1) = quat.at<qreal>(1);
+    prevQuat.at<qreal>(2) = quat.at<qreal>(2);
+    prevQuat.at<qreal>(3) = quat.at<qreal>(3);
 }
 
 void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
