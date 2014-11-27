@@ -38,10 +38,13 @@ IMU::IMU(QQuickItem* parent) :
     QQuickItem(parent),
     gyroId(""),
     accId(""),
+    magId(""),
     gyro(nullptr),
     acc(nullptr),
+    mag(nullptr),
     lastGyroTimestamp(0),
     lastAccTimestamp(0),
+    lastMagTimestamp(0),
     filter(4, 3, CV_TYPE)
 {
 
@@ -54,6 +57,10 @@ IMU::IMU(QQuickItem* parent) :
             }
             else if(type == "QAccelerometer"){
                 if(openAcc(id))
+                    break;
+            }
+            else if(type == "QMagnetometer"){
+                if(openMag(id))
                     break;
             }
 
@@ -85,6 +92,7 @@ IMU::~IMU()
 {
     delete gyro;
     delete acc;
+    delete mag;
 }
 
 bool IMU::openGyro(QByteArray const& id)
@@ -139,6 +147,33 @@ bool IMU::openAcc(QByteArray const& id)
     }
 }
 
+bool IMU::openMag(QByteArray const& id)
+{
+    QMagnetometer* newMag = new QMagnetometer(this);
+    newMag->setIdentifier(id);
+
+    //Sensor is fine
+    if(newMag->connectToBackend()){
+        magId = QByteArray(id);
+        emit magIdChanged();
+        delete mag;
+        mag = newMag;
+        connect(mag, &QMagnetometer::readingChanged, this, &IMU::magReadingChanged);
+        mag->setDataRate(1000); //Probably will not go this high and will reach maximum
+        mag->setReturnGeoValues(true); //Try to cancel out magnetic interference
+        mag->start();
+        qDebug() << "Opened magnetometer with identifier " << id;
+        return true;
+    }
+
+    //Sensor could not be opened for some reason
+    else{
+        qDebug() << "Error: Could not open magnetometer with identifier " << id;
+        delete newMag;
+        return false;
+    }
+}
+
 QString IMU::getGyroId()
 {
     return gyroId;
@@ -175,6 +210,25 @@ void IMU::setAccId(QString const& newId)
         }
 
     qDebug() << "Error: Accelerometer with identifier " << newId << " not found.";
+}
+
+QString IMU::getMagId()
+{
+    return magId;
+}
+
+void IMU::setMagId(QString const& newId)
+{
+    if(newId == magId)
+        return;
+
+    for(auto const& id : QSensor::sensorsForType("QMagnetometer"))
+        if(id == newId){
+            openMag(id);
+            return;
+        }
+
+    qDebug() << "Error: Magnetometer with identifier " << newId << " not found.";
 }
 
 void IMU::gyroReadingChanged()
@@ -238,6 +292,22 @@ void IMU::accReadingChanged()
         }
     }
     lastAccTimestamp = timestamp;
+}
+
+void IMU::magReadingChanged()
+{
+    quint64 timestamp = mag->reading()->timestamp();
+    qreal mx = mag->reading()->x(); //Magnetic flux along x axis in Teslas
+    qreal my = mag->reading()->y(); //Magnetic flux along y axis in Teslas
+    qreal mz = mag->reading()->z(); //Magnetic flux along z axis in Teslas
+    if(lastMagTimestamp > 0){
+        qreal deltaT = ((qreal)(timestamp - lastMagTimestamp))/1000000.0f;
+        qreal norm = sqrt(mx*mx + my*my + mz*mz);
+        if(deltaT > 0){
+            qDebug() << mx/norm << " " << my/norm << " " << mz/norm;
+        }
+    }
+    lastMagTimestamp = timestamp;
 }
 
 inline void IMU::normalizeQuat(cv::Mat& quat)

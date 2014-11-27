@@ -32,6 +32,8 @@
 #include<QtSensors/QAccelerometerReading>
 #include<QtSensors/QGyroscope>
 #include<QtSensors/QGyroscopeReading>
+#include<QtSensors/QMagnetometer>
+#include<QtSensors/QMagnetometerReading>
 #include<QVector3D>
 #include<QQuaternion>
 
@@ -42,6 +44,7 @@ Q_OBJECT
     Q_DISABLE_COPY(IMU)
     Q_PROPERTY(QString gyroId READ getGyroId WRITE setGyroId NOTIFY gyroIdChanged)
     Q_PROPERTY(QString accId READ getAccId WRITE setAccId NOTIFY accIdChanged)
+    Q_PROPERTY(QString magId READ getMagId WRITE setMagId NOTIFY magIdChanged)
     Q_PROPERTY(QVector3D rotAxis READ getRotAxis NOTIFY rotationChanged)
     Q_PROPERTY(qreal rotAngle READ getRotAngle NOTIFY rotationChanged)
 
@@ -91,6 +94,22 @@ public:
      */
     void setAccId(QString const& accId);
 
+     /**
+     * @brief Returns the current magnetometer identifier, if any
+     *
+     * @return Current magnetometer identifier if exists and is opened, empty string if not
+     */
+   QString getMagId();
+
+     /**
+     * @brief Sets the new magnetometer identifier and opens the corresponding device for data
+     *
+     * Identifier is set to empty string if device can't be opened
+     *
+     * @param accId New magnetometer identifier
+     */
+   void setMagId(QString const& magId);
+
     /**
      * @brief Returns the latest estimated rotation's axis in angle-axis representation
      *
@@ -126,6 +145,12 @@ private slots:
      */
     void accReadingChanged();
 
+    /**
+     * @brief Called when a new magnetometer reading is available
+     */
+    void magReadingChanged();
+
+
 signals:
 
     /**
@@ -137,6 +162,11 @@ signals:
      * @brief Emitted when the accelerometer identifier changes
      */
     void accIdChanged();
+
+    /**
+     * @brief Emitted when the magnetometer identifier changes
+     */
+    void magIdChanged();
 
     /**
      * @brief Emitted when the estimated rotation is changed
@@ -166,6 +196,17 @@ private:
      * @return Whether successfully opened
      */
     bool openAcc(QByteArray const& id);
+
+    /**
+     * @brief Attempts to open magnetometer with given id
+     *
+     * If successful, sets rate to maximum and starts sensor
+     *
+     * @param id Identifier of the sensor to be opened
+     *
+     * @return Whether successfully opened
+     */
+    bool openMag(QByteArray const& id);
 
     /**
      * @brief Normalizes given quaternion to unit norm
@@ -221,12 +262,15 @@ private:
 
     QString gyroId;                 ///< Gyroscope identifier, empty string when not open
     QString accId;                  ///< Accelerometer identifier, empty string when not open
+    QString magId;                  ///< Magnetometer identifier, empty string when not open
 
     QGyroscope* gyro;               ///< Gyroscope sensor, nullptr when not open
     QAccelerometer* acc;            ///< Accelerometer sensor, nullptr when not open
+    QMagnetometer* mag;             ///< Magnetometers sensor, nullptr when not open
 
     quint64 lastGyroTimestamp;      ///< Most recent gyroscope measurement timestamp
     quint64 lastAccTimestamp;       ///< Most recent accelerometer measurement timestamp
+    quint64 lastMagTimestamp;       ///< Most recent magnetometer measurement timestamp
 
     ExtendedKalmanFilter filter;    ///< Filter that estimates current tilt and linear acceleration in ground frame
 
