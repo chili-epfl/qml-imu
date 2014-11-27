@@ -8,3 +8,6 @@ build*/
 #Annoying files
 *~
 
+#Blender temp files
+*.blend1
+

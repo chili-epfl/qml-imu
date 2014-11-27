@@ -76,9 +76,9 @@ IMU::IMU(QQuickItem* parent) :
 
     //Measurement noise covariance matrix
     filter.observationNoiseCov = (cv::Mat_<qreal>(3,3) <<
-            1e+1f,  0.0f,   0.0f,
-            0.0f,   1e+1f,  0.0f,
-            0.0f,   0.0f,   1e+1f);
+            1e+0f,  0.0f,   0.0f,
+            0.0f,   1e+0f,  0.0f,
+            0.0f,   0.0f,   1e+0f);
 }
 
 IMU::~IMU()
@@ -201,6 +201,10 @@ void IMU::gyroReadingChanged()
 
             //Ensure a posteriori state reflects prediction in case measurement doesn't occur
             filter.statePre.copyTo(filter.statePost);
+
+            //Export rotation
+            calculateOutputRotation();
+            emit rotationChanged();
         }
     }
     lastGyroTimestamp = timestamp;
@@ -228,26 +232,9 @@ void IMU::accReadingChanged()
             //Ensure output quaternion doesn't unwind
             shortestPathQuat(statePostHistory, filter.statePost);
 
-            //**********************************
-            qreal theta = sqrt(
-                    filter.statePost.at<qreal>(1)*filter.statePost.at<qreal>(1) +
-                    filter.statePost.at<qreal>(2)*filter.statePost.at<qreal>(2) +
-                    filter.statePost.at<qreal>(3)*filter.statePost.at<qreal>(3));
-            theta = 2*atan2(theta, filter.statePost.at<qreal>(0));
-            qreal sTheta2 = sin(theta/2);
-            qreal rx,ry,rz;
-            if(theta < EPSILON){ //Use lim( theta -> 0 ){ theta/sin(theta) }
-                rx = filter.statePost.at<qreal>(1); //rx
-                ry = filter.statePost.at<qreal>(2); //ry
-                rz = filter.statePost.at<qreal>(3); //rz
-            }
-            else{
-                rx = filter.statePost.at<qreal>(1)*theta/sTheta2; //rx
-                ry = filter.statePost.at<qreal>(2)*theta/sTheta2; //ry
-                rz = filter.statePost.at<qreal>(3)*theta/sTheta2; //rz
-            }
-            qDebug() << qRadiansToDegrees(rx) << " " << qRadiansToDegrees(ry) << " " << qRadiansToDegrees(rz);
-            //************************
+            //Export rotation
+            calculateOutputRotation();
+            emit rotationChanged();
         }
     }
     lastAccTimestamp = timestamp;
@@ -348,14 +335,36 @@ void IMU::calculateObservation(qreal ax, qreal ay, qreal az)
             +2*g*q0,    -2*g*q1,    -2*g*q2,    +2*g*q3);
 }
 
-QVector3D IMU::getRotation()
+void IMU::calculateOutputRotation()
 {
-
+    rotAngle = sqrt(
+            filter.statePost.at<qreal>(1)*filter.statePost.at<qreal>(1) +
+            filter.statePost.at<qreal>(2)*filter.statePost.at<qreal>(2) +
+            filter.statePost.at<qreal>(3)*filter.statePost.at<qreal>(3));
+    rotAngle = 2*atan2(rotAngle, filter.statePost.at<qreal>(0));
+    if(rotAngle < EPSILON){
+        rotAxis.setX(0.0f);
+        rotAxis.setY(0.0f);
+        rotAxis.setZ(0.0f);
+        rotAngle = 0.0f;
+    }
+    else{
+        qreal sTheta2 = sin(rotAngle/2);
+        rotAxis.setX(filter.statePost.at<qreal>(1)*sTheta2);
+        rotAxis.setY(filter.statePost.at<qreal>(2)*sTheta2);
+        rotAxis.setZ(filter.statePost.at<qreal>(3)*sTheta2);
+        rotAngle = qRadiansToDegrees(rotAngle);
+    }
 }
 
-QQuaternion IMU::getRotationQuat()
+QVector3D IMU::getRotAxis()
 {
+    return rotAxis;
+}
 
+qreal IMU::getRotAngle()
+{
+    return rotAngle;
 }
 
 void IMU::changeParent(QQuickItem* parent)

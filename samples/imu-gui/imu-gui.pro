@@ -1,10 +1,6 @@
 TEMPLATE = app
 
-QT += qml quick sensors
-
-qtHaveModule(3d){
-    QT += 3d
-}
+QT += qml quick sensors 3d 3dquick
 
 SOURCES += src/main.cpp
 

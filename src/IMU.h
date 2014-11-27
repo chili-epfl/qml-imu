@@ -42,8 +42,8 @@ Q_OBJECT
     Q_DISABLE_COPY(IMU)
     Q_PROPERTY(QString gyroId READ getGyroId WRITE setGyroId NOTIFY gyroIdChanged)
     Q_PROPERTY(QString accId READ getAccId WRITE setAccId NOTIFY accIdChanged)
-    Q_PROPERTY(QVector3D rotation READ getRotation NOTIFY rotationChanged)
-    Q_PROPERTY(QQuaternion rotationQuat READ getRotationQuat NOTIFY rotationChanged)
+    Q_PROPERTY(QVector3D rotAxis READ getRotAxis NOTIFY rotationChanged)
+    Q_PROPERTY(qreal rotAngle READ getRotAngle NOTIFY rotationChanged)
 
 public:
 
@@ -92,18 +92,18 @@ public:
     void setAccId(QString const& accId);
 
     /**
-     * @brief Returns the latest estimated rotation in angle-axis representation
+     * @brief Returns the latest estimated rotation's axis in angle-axis representation
      *
-     * @return Latest estimated rotation w.r.t ground inertial frame
+     * @return Latest estimated rotation's axis w.r.t ground inertial frame
      */
-    QVector3D getRotation();
+    QVector3D getRotAxis();
 
     /**
-     * @brief Returns the latest estimated rotation in quaternion representation
+     * @brief Returns the latest estimated rotation's angle in angle-axis representation
      *
-     * @return Latest estimated rotation w.r.t ground inertial frame
+     * @return Latest estimated rotation's angle w.r.t ground inertial frame
      */
-    QQuaternion getRotationQuat();
+    qreal getRotAngle();
 
 public slots:
 
@@ -211,6 +211,11 @@ private:
      */
     void calculateObservation(qreal ax, qreal ay, qreal az);
 
+    /**
+     * @brief Calculates and stores the rotation in angle-axis representation
+     */
+    void calculateOutputRotation();
+
     static const int CV_TYPE;       ///< CV_64F or CV_32f
     static const qreal EPSILON;     ///< FLT_EPSILON or DBL_EPSILON
 
@@ -232,6 +237,12 @@ private:
 
     cv::Mat statePreHistory;        ///< Previous value of the a priori state for quaternion sign correction
     cv::Mat statePostHistory;       ///< Previous value of the a posteriori state for quaternion sign correction
+
+    /// @defgroup rotation Rotation of the device w.r.t ground inertial frame in angle-axis representation
+    /// @{
+    QVector3D rotAxis;
+    qreal rotAngle;
+    /// @}
 };
 
 #endif /* IMU_H */
