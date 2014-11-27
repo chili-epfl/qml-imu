@@ -58,16 +58,19 @@ IMU::IMU(QQuickItem* parent) :
             }
 
     //Just do assumptions for initial values
-    process = (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
-    observation = (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
-    predictedObservation = (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
+    process =           (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+    filter.statePre =   (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+    filter.statePost =  (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+
+    observation =           (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
+    predictedObservation =  (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
 
     //Process noise covariance matrix is deltaT*Q at each step
     Q = (cv::Mat_<qreal>(4,4) <<
-            1.0f,   0.0f,   0.0f,   0.0f,
-            0.0f,   1.0f,   0.0f,   0.0f,
-            0.0f,   0.0f,   1.0f,   0.0f,
-            0.0f,   0.0f,   0.0f,   1.0f);
+            1e-4f,  0.0f,   0.0f,   0.0f,
+            0.0f,   1e-4f,  0.0f,   0.0f,
+            0.0f,   0.0f,   1e-4f,  0.0f,
+            0.0f,   0.0f,   0.0f,   1e-4f);
 
     //Measurement noise covariance matrix
     filter.observationNoiseCov = (cv::Mat_<qreal>(3,3) <<
@@ -180,10 +183,39 @@ void IMU::gyroReadingChanged()
     qreal wz = qDegreesToRadians(gyro->reading()->z()); //Angular velocity around z axis in rad/s
     if(lastGyroTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastGyroTimestamp))/1000000.0f;
-        qDebug() << "Gyro delta t: " << deltaT; //Get deltaT in seconds
+        if(deltaT > 0){
+            calculateProcess(wx,wy,wz,deltaT);
+
+
+            //cv::Mat& ref = filter.transitionMatrix;
+            //qDebug()<<"transition matrix";
+            //qDebug()<<ref.at<qreal>(0,0)<<" "<<ref.at<qreal>(0,1)<<" "<<ref.at<qreal>(0,2)<<" "<<ref.at<qreal>(0,3);
+            //qDebug()<<ref.at<qreal>(1,0)<<" "<<ref.at<qreal>(1,1)<<" "<<ref.at<qreal>(1,2)<<" "<<ref.at<qreal>(1,3);
+            //qDebug()<<ref.at<qreal>(2,0)<<" "<<ref.at<qreal>(2,1)<<" "<<ref.at<qreal>(2,2)<<" "<<ref.at<qreal>(2,3);
+            //qDebug()<<ref.at<qreal>(3,0)<<" "<<ref.at<qreal>(3,1)<<" "<<ref.at<qreal>(3,2)<<" "<<ref.at<qreal>(3,3);
+            //qDebug()<<"";
+
+
+
+            //cv::Mat& ref5 = filter.errorCovPost;
+            //qDebug()<<"errorcovpost";
+            //qDebug()<<ref5.at<qreal>(0,0)<<" "<<ref5.at<qreal>(0,1)<<" "<<ref5.at<qreal>(0,2)<<" "<<ref5.at<qreal>(0,3);
+            //qDebug()<<ref5.at<qreal>(1,0)<<" "<<ref5.at<qreal>(1,1)<<" "<<ref5.at<qreal>(1,2)<<" "<<ref5.at<qreal>(1,3);
+            //qDebug()<<ref5.at<qreal>(2,0)<<" "<<ref5.at<qreal>(2,1)<<" "<<ref5.at<qreal>(2,2)<<" "<<ref5.at<qreal>(2,3);
+            //qDebug()<<ref5.at<qreal>(3,0)<<" "<<ref5.at<qreal>(3,1)<<" "<<ref5.at<qreal>(3,2)<<" "<<ref5.at<qreal>(3,3);
+            //qDebug()<<"";
+
+
+
+
+            filter.predict(process);
+            normalizeQuat(filter.statePre);
+            normalizeQuat(filter.statePost);
+
+            
+        }
     }
     lastGyroTimestamp = timestamp;
-    qDebug() << "Gyro: " << wx << " " << wy << " " << wz;
 }
 
 void IMU::accReadingChanged()
@@ -194,10 +226,80 @@ void IMU::accReadingChanged()
     qreal az = acc->reading()->z(); //Linear acceleration along z axis in m/s^2
     if(lastAccTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastAccTimestamp))/1000000.0f;
-        qDebug() << "Acc delta t: " << deltaT; //Get deltaT in seconds
+        if(deltaT > 0){
+            calculateObservation(ax, ay, az);
+            filter.correct(observation, predictedObservation);
+            //qDebug() << observation.at<qreal>(0) << " " << observation.at<qreal>(1) << " " << observation.at<qreal>(2);
+            //qDebug() << predictedObservation.at<qreal>(0) << " " << predictedObservation.at<qreal>(1) << " " << predictedObservation.at<qreal>(2);
+            normalizeQuat(filter.statePost);
+
+
+            //**********************************
+            qreal theta = sqrt(
+                    filter.statePost.at<qreal>(1)*filter.statePost.at<qreal>(1) +
+                    filter.statePost.at<qreal>(2)*filter.statePost.at<qreal>(2) +
+                    filter.statePost.at<qreal>(3)*filter.statePost.at<qreal>(3));
+            theta = 2*atan2(theta, filter.statePost.at<qreal>(0));
+            qreal sTheta2 = sin(theta/2);
+            qreal rx,ry,rz;
+            if(theta < EPSILON){ //Use lim( theta -> 0 ){ theta/sin(theta) }
+                rx = filter.statePost.at<qreal>(1); //rx
+                ry = filter.statePost.at<qreal>(2); //ry
+                rz = filter.statePost.at<qreal>(3); //rz
+            }
+            else{
+                rx = filter.statePost.at<qreal>(1)*theta/sTheta2; //rx
+                ry = filter.statePost.at<qreal>(2)*theta/sTheta2; //ry
+                rz = filter.statePost.at<qreal>(3)*theta/sTheta2; //rz
+            }
+            //qDebug() << qRadiansToDegrees(rx) << " " << qRadiansToDegrees(ry) << " " << qRadiansToDegrees(rz);
+            //************************
+
+
+
+            //cv::Mat& ref4 = filter.observationMatrix;
+            //qDebug()<<"H";
+            //qDebug()<<ref4.at<qreal>(0,0)<<" "<<ref4.at<qreal>(0,1)<<" "<<ref4.at<qreal>(0,2)<<" "<<ref4.at<qreal>(0,3);
+            //qDebug()<<ref4.at<qreal>(1,0)<<" "<<ref4.at<qreal>(1,1)<<" "<<ref4.at<qreal>(1,2)<<" "<<ref4.at<qreal>(1,3);
+            //qDebug()<<ref4.at<qreal>(2,0)<<" "<<ref4.at<qreal>(2,1)<<" "<<ref4.at<qreal>(2,2)<<" "<<ref4.at<qreal>(2,3);
+            //qDebug()<<"";
+
+            //cv::Mat& ref5 = filter.errorCovPre;
+            //qDebug()<<"errorcovpre";
+            //qDebug()<<ref5.at<qreal>(0,0)<<" "<<ref5.at<qreal>(0,1)<<" "<<ref5.at<qreal>(0,2)<<" "<<ref5.at<qreal>(0,3);
+            //qDebug()<<ref5.at<qreal>(1,0)<<" "<<ref5.at<qreal>(1,1)<<" "<<ref5.at<qreal>(1,2)<<" "<<ref5.at<qreal>(1,3);
+            //qDebug()<<ref5.at<qreal>(2,0)<<" "<<ref5.at<qreal>(2,1)<<" "<<ref5.at<qreal>(2,2)<<" "<<ref5.at<qreal>(2,3);
+            //qDebug()<<ref5.at<qreal>(3,0)<<" "<<ref5.at<qreal>(3,1)<<" "<<ref5.at<qreal>(3,2)<<" "<<ref5.at<qreal>(3,3);
+            //qDebug()<<"";
+
+
+            //cv::Mat& ref3 = filter.temp2;
+            //qDebug()<<"temp2";
+            //qDebug()<<ref3.at<qreal>(0,0)<<" "<<ref3.at<qreal>(0,1)<<" "<<ref3.at<qreal>(0,2)<<" "<<ref3.at<qreal>(0,3);
+            //qDebug()<<ref3.at<qreal>(1,0)<<" "<<ref3.at<qreal>(1,1)<<" "<<ref3.at<qreal>(1,2)<<" "<<ref3.at<qreal>(1,3);
+            //qDebug()<<ref3.at<qreal>(2,0)<<" "<<ref3.at<qreal>(2,1)<<" "<<ref3.at<qreal>(2,2)<<" "<<ref3.at<qreal>(2,3);
+            //qDebug()<<"";
+
+
+            //cv::Mat& ref = filter.temp3;
+            //qDebug()<<"temp3";
+            //qDebug()<<ref.at<qreal>(0,0)<<" "<<ref.at<qreal>(0,1)<<" "<<ref.at<qreal>(0,2);
+            //qDebug()<<ref.at<qreal>(1,0)<<" "<<ref.at<qreal>(1,1)<<" "<<ref.at<qreal>(1,2);
+            //qDebug()<<ref.at<qreal>(2,0)<<" "<<ref.at<qreal>(2,1)<<" "<<ref.at<qreal>(2,2);
+            //qDebug()<<"";
+
+
+            //cv::Mat& ref2 = filter.gain;
+            //qDebug()<<"K";
+            //qDebug()<<ref2.at<qreal>(0,0)<<" "<<ref2.at<qreal>(0,1)<<" "<<ref2.at<qreal>(0,2)<<" "<<ref2.at<qreal>(0,3);
+            //qDebug()<<ref2.at<qreal>(1,0)<<" "<<ref2.at<qreal>(1,1)<<" "<<ref2.at<qreal>(1,2)<<" "<<ref2.at<qreal>(1,3);
+            //qDebug()<<ref2.at<qreal>(2,0)<<" "<<ref2.at<qreal>(2,1)<<" "<<ref2.at<qreal>(2,2)<<" "<<ref2.at<qreal>(2,3);
+            //qDebug()<<"";
+
+
+        }
     }
     lastAccTimestamp = timestamp;
-    qDebug() << "Acc: " << ax << " " << ay << " " << az;
 }
 
 inline void IMU::normalizeQuat(cv::Mat& quat)
@@ -226,27 +328,23 @@ void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
 {
 
     //Calculate process value
-    cv::Mat newProcess;
-    process.copyTo(newProcess);
+    qreal q0 = filter.statePost.at<qreal>(0);
+    qreal q1 = filter.statePost.at<qreal>(1);
+    qreal q2 = filter.statePost.at<qreal>(2);
+    qreal q3 = filter.statePost.at<qreal>(3);
 
-    qreal q0 = process.at<qreal>(0);
-    qreal q1 = process.at<qreal>(1);
-    qreal q2 = process.at<qreal>(2);
-    qreal q3 = process.at<qreal>(3);
+    process.at<qreal>(0) = q0 + 0.5f*deltaT*(-q1*wx - q2*wy - q3*wz);
+    process.at<qreal>(1) = q1 + 0.5f*deltaT*(+q0*wx + q3*wy - q2*wz);
+    process.at<qreal>(2) = q2 + 0.5f*deltaT*(-q3*wx + q0*wy + q1*wz);
+    process.at<qreal>(3) = q3 + 0.5f*deltaT*(+q2*wx - q1*wy + q0*wz);
 
-    newProcess.at<qreal>(0) += 0.5f*deltaT*(-q1*wx - q2*wy - q3*wz);
-    newProcess.at<qreal>(1) += 0.5f*deltaT*(+q0*wx + q3*wy - q2*wz);
-    newProcess.at<qreal>(2) += 0.5f*deltaT*(-q3*wx + q0*wy + q1*wz);
-    newProcess.at<qreal>(3) += 0.5f*deltaT*(+q2*wx - q1*wy + q0*wz);
-
-    newProcess.copyTo(process);
     normalizeQuat(process);
 
     //Calculate transition matrix
     filter.transitionMatrix = (cv::Mat_<qreal>(4,4) <<
             +1.0f,              -0.5f*deltaT*wx,    -0.5f*deltaT*wy,    -0.5f*deltaT*wz,
             +0.5f*deltaT*wx,    +1.0f,              -0.5f*deltaT*wz,    +0.5f*deltaT*wy,
-            +0.5f*deltaT*wy,    +0.5f*deltaT*wz,    +1.0f               -0.5f*deltaT*wx,
+            +0.5f*deltaT*wy,    +0.5f*deltaT*wz,    +1.0f,              -0.5f*deltaT*wx,
             +0.5f*deltaT*wz,    -0.5f*deltaT*wy,    +0.5f*deltaT*wx,    +1.0f);
 
     //Calculate process covariance matrix
