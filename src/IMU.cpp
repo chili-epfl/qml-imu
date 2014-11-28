@@ -83,9 +83,9 @@ IMU::IMU(QQuickItem* parent) :
 
     //Measurement noise covariance matrix
     filter.observationNoiseCov = (cv::Mat_<qreal>(3,3) <<
-            1e+0f,  0.0f,   0.0f,
-            0.0f,   1e+0f,  0.0f,
-            0.0f,   0.0f,   1e+0f);
+            1e+1f,  0.0f,   0.0f,
+            0.0f,   1e+1f,  0.0f,
+            0.0f,   0.0f,   1e+1f);
 }
 
 IMU::~IMU()
@@ -300,11 +300,12 @@ void IMU::magReadingChanged()
     qreal mx = mag->reading()->x(); //Magnetic flux along x axis in Teslas
     qreal my = mag->reading()->y(); //Magnetic flux along y axis in Teslas
     qreal mz = mag->reading()->z(); //Magnetic flux along z axis in Teslas
+
     if(lastMagTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastMagTimestamp))/1000000.0f;
         qreal norm = sqrt(mx*mx + my*my + mz*mz);
         if(deltaT > 0){
-            qDebug() << mx/norm << " " << my/norm << " " << mz/norm;
+            qDebug() << norm*1000000.0f;
         }
     }
     lastMagTimestamp = timestamp;
@@ -362,18 +363,18 @@ void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
     qreal q3 = filter.statePost.at<qreal>(3);
 
     process.at<qreal>(0) = q0 + 0.5f*deltaT*(-q1*wx - q2*wy - q3*wz);
-    process.at<qreal>(1) = q1 + 0.5f*deltaT*(+q0*wx + q3*wy - q2*wz);
-    process.at<qreal>(2) = q2 + 0.5f*deltaT*(-q3*wx + q0*wy + q1*wz);
-    process.at<qreal>(3) = q3 + 0.5f*deltaT*(+q2*wx - q1*wy + q0*wz);
+    process.at<qreal>(1) = q1 + 0.5f*deltaT*(+q0*wx - q3*wy + q2*wz);
+    process.at<qreal>(2) = q2 + 0.5f*deltaT*(+q3*wx + q0*wy - q1*wz);
+    process.at<qreal>(3) = q3 + 0.5f*deltaT*(-q2*wx + q1*wy + q0*wz);
 
     normalizeQuat(process);
 
     //Calculate transition matrix
     filter.transitionMatrix = (cv::Mat_<qreal>(4,4) <<
             +1.0f,              -0.5f*deltaT*wx,    -0.5f*deltaT*wy,    -0.5f*deltaT*wz,
-            +0.5f*deltaT*wx,    +1.0f,              -0.5f*deltaT*wz,    +0.5f*deltaT*wy,
-            +0.5f*deltaT*wy,    +0.5f*deltaT*wz,    +1.0f,              -0.5f*deltaT*wx,
-            +0.5f*deltaT*wz,    -0.5f*deltaT*wy,    +0.5f*deltaT*wx,    +1.0f);
+            +0.5f*deltaT*wx,    +1.0f,              +0.5f*deltaT*wz,    -0.5f*deltaT*wy,
+            +0.5f*deltaT*wy,    -0.5f*deltaT*wz,    +1.0f,              +0.5f*deltaT*wx,
+            +0.5f*deltaT*wz,    +0.5f*deltaT*wy,    -0.5f*deltaT*wx,    +1.0f);
 
     //Calculate process covariance matrix
     filter.processNoiseCov = Q*deltaT;
