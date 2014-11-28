@@ -45,7 +45,7 @@ IMU::IMU(QQuickItem* parent) :
     lastGyroTimestamp(0),
     lastAccTimestamp(0),
     lastMagTimestamp(0),
-    filter(4, 3, CV_TYPE)
+    filter(4, 6, CV_TYPE)
 {
 
     //Open first encountered and valid gyroscope and accelerometer
@@ -71,8 +71,8 @@ IMU::IMU(QQuickItem* parent) :
     filter.statePost =  (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
     statePostHistory =  (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
 
-    observation =           (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
-    predictedObservation =  (cv::Mat_<qreal>(3,1) << 0.0f, 0.0f, 9.81f);
+    observation =           (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, 9.81f, 1.0f, 0.0f, 0.0f);
+    predictedObservation =  (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, 9.81f, 1.0f, 0.0f, 0.0f);
 
     //Process noise covariance matrix is deltaT*Q at each step
     Q = (cv::Mat_<qreal>(4,4) <<
@@ -83,10 +83,13 @@ IMU::IMU(QQuickItem* parent) :
     Q.copyTo(filter.errorCovPre);
 
     //Measurement noise covariance matrix
-    filter.observationNoiseCov = (cv::Mat_<qreal>(3,3) <<
-            1e+1f,  0.0f,   0.0f,
-            0.0f,   1e+1f,  0.0f,
-            0.0f,   0.0f,   1e+1f);
+    filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
+            1e+1f,  0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   1e+1f,  0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   1e+1f,  0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   1e-4f,  0.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   0.0f,   1e-4f,  0.0f,
+            0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   1e-4f);
 }
 
 IMU::~IMU()
@@ -275,7 +278,7 @@ void IMU::accReadingChanged()
         if(deltaT > 0){
 
             //Calculate observation value, predicted observation value and observation matrix
-            calculateObservation(ax, ay, az);
+            calculateObservation(ax, ay, az, mx, my, mz);
 
             //Do correction step
             filter.correct(observation, predictedObservation);
@@ -288,6 +291,8 @@ void IMU::accReadingChanged()
 
             //Export rotation
             calculateOutputRotation();
+
+            qDebug() << "acc:" << deltaT;
         }
     }
     lastAccTimestamp = timestamp;
@@ -302,9 +307,10 @@ void IMU::magReadingChanged()
 
     if(lastMagTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastMagTimestamp))/1000000.0f;
-        qreal norm = sqrt(mx*mx + my*my + mz*mz);
         if(deltaT > 0){
-            qDebug() << norm*1000000.0f;
+            this->mx = mx*1000000.0f;
+            this->my = my*1000000.0f;
+            this->mz = mz*1000000.0f;
         }
     }
     lastMagTimestamp = timestamp;
@@ -379,30 +385,53 @@ void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
     filter.processNoiseCov = Q*deltaT;
 }
 
-void IMU::calculateObservation(qreal ax, qreal ay, qreal az)
+void IMU::calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my, qreal mz)
 {
 
-    //Calculate observation
-    observation.at<qreal>(0) = ax;
-    observation.at<qreal>(1) = ay;
-    observation.at<qreal>(2) = az;
+    //There is something wrong here
 
-    //Calculate predicted observation
+
+    //Variables dependent on current state
     qreal q0 = filter.statePre.at<qreal>(0);
     qreal q1 = filter.statePre.at<qreal>(1);
     qreal q2 = filter.statePre.at<qreal>(2);
     qreal q3 = filter.statePre.at<qreal>(3);
     const qreal g = 9.81f;
+    qreal R_DCM_z0 = 2*(q1*q3 - q0*q2);
+    qreal R_DCM_z1 = 2*(q2*q3 + q0*q1);
+    qreal R_DCM_z2 = q0*q0 - q1*q1 - q2*q2 + q3*q3;
 
-    predictedObservation.at<qreal>(0) = 2*(q1*q3 - q0*q2)*g;
-    predictedObservation.at<qreal>(1) = 2*(q2*q3 + q0*q1)*g;
-    predictedObservation.at<qreal>(2) = (q0*q0 - q1*q1 - q2*q2 + q3*q3)*g;
+    //Calculate observation
+    observation.at<qreal>(0) = ax;
+    observation.at<qreal>(1) = ay;
+    observation.at<qreal>(2) = az;
+    observation.at<qreal>(3) = my*R_DCM_z2 - mz*R_DCM_z1; //(m x u_z)_x
+    observation.at<qreal>(4) = mz*R_DCM_z0 - mx*R_DCM_z2; //(m x u_z)_y
+    observation.at<qreal>(5) = mx*R_DCM_z1 - my*R_DCM_z0; //(m x u_z)_z
+    qreal uxnorm = sqrt(
+            observation.at<qreal>(3)*observation.at<qreal>(3) +
+            observation.at<qreal>(4)*observation.at<qreal>(4) +
+            observation.at<qreal>(5)*observation.at<qreal>(5));
+    observation.at<qreal>(3) /= uxnorm;
+    observation.at<qreal>(4) /= uxnorm;
+    observation.at<qreal>(5) /= uxnorm;
+
+    //Calculate predicted observation
+    predictedObservation.at<qreal>(0) = R_DCM_z0*g;
+    predictedObservation.at<qreal>(1) = R_DCM_z1*g;
+    predictedObservation.at<qreal>(2) = R_DCM_z2*g;
+    predictedObservation.at<qreal>(3) = q0*q0 + q1*q1 - q2*q2 - q3*q3;
+    predictedObservation.at<qreal>(4) = 2*(q1*q2 - q0*q3);
+    predictedObservation.at<qreal>(5) = 2*(q1*q3 + q0*q2);
 
     //Calculate observation matrix
-    filter.observationMatrix = (cv::Mat_<qreal>(3,4) <<
+    filter.observationMatrix = (cv::Mat_<qreal>(6,4) <<
             -2*g*q2,    +2*g*q3,    -2*g*q0,    +2*g*q1,
             +2*g*q1,    +2*g*q0,    +2*g*q3,    +2*g*q2,
-            +2*g*q0,    -2*g*q1,    -2*g*q2,    +2*g*q3);
+            +2*g*q0,    -2*g*q1,    -2*g*q2,    +2*g*q3,
+            +2*q0,      +2*q1,      -2*q2,      -2*q3,
+            -2*q3,      +2*q2,      +2*q1,      -2*q0,
+            +2*q2,      +2*q3,      +2*q0,      +2*q1);
 }
 
 void IMU::calculateOutputRotation()

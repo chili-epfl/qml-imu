@@ -249,8 +249,11 @@ private:
      * @param ax Measured linear acceleration along local x axis
      * @param ay Measured linear acceleration along local y axis
      * @param az Measured linear acceleration along local z axis
+     * @param mx Measured magnetic flux along local x axis
+     * @param my Measured magnetic flux along local y axis
+     * @param mz Measured magnetic flux along local z axis
      */
-    void calculateObservation(qreal ax, qreal ay, qreal az);
+    void calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my, qreal mz);
 
     /**
      * @brief Calculates and stores the rotation in angle-axis representation
@@ -281,6 +284,12 @@ private:
 
     cv::Mat statePreHistory;        ///< Previous value of the a priori state for quaternion sign correction
     cv::Mat statePostHistory;       ///< Previous value of the a posteriori state for quaternion sign correction
+
+
+    qreal mx = 0;
+    qreal my = 0;
+    qreal mz = 0;
+
 
     /// @defgroup rotation Rotation of the device w.r.t ground inertial frame in angle-axis representation
     /// @{
