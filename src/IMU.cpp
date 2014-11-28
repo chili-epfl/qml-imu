@@ -80,6 +80,7 @@ IMU::IMU(QQuickItem* parent) :
             0.0f,   1e-4f,  0.0f,   0.0f,
             0.0f,   0.0f,   1e-4f,  0.0f,
             0.0f,   0.0f,   0.0f,   1e-4f);
+    Q.copyTo(filter.errorCovPre);
 
     //Measurement noise covariance matrix
     filter.observationNoiseCov = (cv::Mat_<qreal>(3,3) <<
@@ -258,7 +259,6 @@ void IMU::gyroReadingChanged()
 
             //Export rotation
             calculateOutputRotation();
-            emit rotationChanged();
         }
     }
     lastGyroTimestamp = timestamp;
@@ -288,7 +288,6 @@ void IMU::accReadingChanged()
 
             //Export rotation
             calculateOutputRotation();
-            emit rotationChanged();
         }
     }
     lastAccTimestamp = timestamp;
@@ -408,6 +407,15 @@ void IMU::calculateObservation(qreal ax, qreal ay, qreal az)
 
 void IMU::calculateOutputRotation()
 {
+    if(gyroId == ""){
+        qDebug() << "Error: Cannot operate without a gyroscope!";
+        return;
+    }
+    if(accId == "")
+        qDebug() << "Warning: Operating without an accelerometer, results will drift!";
+    if(magId == "")
+        qDebug() << "Warning: Operating without a magnetometer, results will drift!";
+
     rotAngle = sqrt(
             filter.statePost.at<qreal>(1)*filter.statePost.at<qreal>(1) +
             filter.statePost.at<qreal>(2)*filter.statePost.at<qreal>(2) +
@@ -426,6 +434,8 @@ void IMU::calculateOutputRotation()
         rotAxis.setZ(filter.statePost.at<qreal>(3)*sTheta2);
         rotAngle = qRadiansToDegrees(rotAngle);
     }
+
+    emit rotationChanged();
 }
 
 QVector3D IMU::getRotAxis()
