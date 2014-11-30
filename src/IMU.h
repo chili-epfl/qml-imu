@@ -285,22 +285,25 @@ private:
     cv::Mat statePreHistory;        ///< Previous value of the a priori state for quaternion sign correction
     cv::Mat statePostHistory;       ///< Previous value of the a posteriori state for quaternion sign correction
 
-    qreal R_g_k_0;                  ///< Gravity observation constant noise component
-    qreal R_g_k_w;                  ///< Gravity observation angular velocity dependent noise component
-    qreal R_g_k_g;                  ///< Gravity observation gravity norm dependent noise component
-    qreal R_x_k_0;                  ///< Unit x vector observation constant noise component
-    qreal R_x_k_w;                  ///< Unit x vector observation angular velocity dependent noise component
-    qreal R_x_k_g;                  ///< Unit x vector observation gravity norm dependent noise component
-    qreal R_x_k_x;                  ///< Unit x vector observation norm noise component
+    qreal R_g_k_0;                  ///< Gravity observation constant noise coefficient
+    qreal R_g_k_w;                  ///< Gravity observation angular velocity dependent noise coefficient
+    qreal R_g_k_g;                  ///< Gravity observation gravity norm dependent noise coefficient
+    qreal R_y_k_0;                  ///< Unit y vector observation constant noise coefficient
+    qreal R_y_k_w;                  ///< Unit y vector observation angular velocity dependent noise coefficient
+    qreal R_y_k_g;                  ///< Unit y vector observation gravity norm dependent noise coefficient
+    qreal R_y_k_n;                  ///< Unit y vector observation norm noise coefficient
+    qreal R_y_k_d;                  ///< Unit y vector observation dip angle noise coefficient
+
+    qreal mx;                       ///< X component of latest magnetic vector in local frame
+    qreal my;                       ///< Y component of latest magnetic vector in local frame
+    qreal mz;                       ///< Z component of latest magnetic vector in local frame
 
     qreal w_norm;                   ///< Magnitude of the latest angular velocity, for noise calculation
     qreal a_norm;                   ///< Magnitude of the latest acceleration, for noise calculation
-    qreal ux_norm_mean;             ///< Mean magnitude of the measured unit x vector
-    qreal ux_norm_mean_alpha;       ///< Smoothing factor for the mean unit x vector magnitude measurement
-    qreal mx = 0;
-    qreal my = 0;
-    qreal mz = 0;
-
+    qreal m_norm;                   ///< Magnitude of the latest magnetic vector, for noise calculation
+    qreal m_norm_mean;              ///< Mean magnitude of the measured magnetic vector
+    qreal m_dip_angle_mean;         ///< Mean dip angle between magnetic vector and floor vector
+    qreal m_mean_alpha;             ///< Smoothing factor for magnetic mean and dip angle mean estimate
 
     /// @defgroup rotation Rotation of the device w.r.t ground inertial frame in angle-axis representation
     /// @{

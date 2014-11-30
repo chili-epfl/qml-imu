@@ -49,12 +49,17 @@ IMU::IMU(QQuickItem* parent) :
     R_g_k_0(1.0f),  //This depends on the two coefficients below
     R_g_k_w(10.0f), //This depends on gyroscope sensor limits, typically 250 deg/s = 7.6 rad/s
     R_g_k_g(7.5f),  //This depends on accelerometer sensor limits, typically 2g
-    R_x_k_0(0.01f),  //This depends on the three coefficients below
-    R_x_k_w(0.10f),  //This depends on gyroscope sensor limits, typically 250 deg/s = 7.6 rad/s
-    R_x_k_g(0.075f), //This depends on the accelerometer sensor limits, typically 2g
-    R_x_k_x(10.0f), //This depends on magnetometer and current orientation
-    ux_norm_mean(-1),
-    ux_norm_mean_alpha(0.99f)
+    R_y_k_0(10.0f),  //This depends on the four coefficients below
+    R_y_k_w(10.0f),  //This depends on gyroscope sensor limits, typically 250 deg/s = 7.6 rad/s
+    R_y_k_g(7.5f),   //This depends on the accelerometer sensor limits, typically 2g
+    R_y_k_n(20.0f),  //This depends on magnetic vector magnitude in milliTeslas
+    R_y_k_d(15.0f),  //This depents on magnetic vector dip against floor vector, in radians
+    mx(0.0f),
+    my(0.0f),
+    mz(0.0f),
+    m_norm_mean(-1),
+    m_dip_angle_mean(-1),
+    m_mean_alpha(0.99f)
 {
 
     //Open first encountered and valid gyroscope and accelerometer
@@ -90,7 +95,6 @@ IMU::IMU(QQuickItem* parent) :
             0.0f,   0.0f,   1e-4f,  0.0f,
             0.0f,   0.0f,   0.0f,   1e-4f);
     Q.copyTo(filter.errorCovPre);
-
 }
 
 IMU::~IMU()
@@ -239,14 +243,14 @@ void IMU::setMagId(QString const& newId)
 void IMU::gyroReadingChanged()
 {
     quint64 timestamp = gyro->reading()->timestamp();
-    qreal wx = qDegreesToRadians(gyro->reading()->x()); //Angular velocity around x axis in rad/s
-    qreal wy = qDegreesToRadians(gyro->reading()->y()); //Angular velocity around y axis in rad/s
-    qreal wz = qDegreesToRadians(gyro->reading()->z()); //Angular velocity around z axis in rad/s
-    w_norm = sqrt(wx*wx + wy*wy + wz*wz);
 
     if(lastGyroTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastGyroTimestamp))/1000000.0f;
         if(deltaT > 0){
+            qreal wx = qDegreesToRadians(gyro->reading()->x()); //Angular velocity around x axis in rad/s
+            qreal wy = qDegreesToRadians(gyro->reading()->y()); //Angular velocity around y axis in rad/s
+            qreal wz = qDegreesToRadians(gyro->reading()->z()); //Angular velocity around z axis in rad/s
+            w_norm = sqrt(wx*wx + wy*wy + wz*wz);
 
             //Calculate process value, transition matrix and process noise covariance matrix
             calculateProcess(wx,wy,wz,deltaT);
@@ -273,14 +277,14 @@ void IMU::gyroReadingChanged()
 void IMU::accReadingChanged()
 {
     quint64 timestamp = acc->reading()->timestamp();
-    qreal ax = acc->reading()->x(); //Linear acceleration along x axis in m/s^2
-    qreal ay = acc->reading()->y(); //Linear acceleration along y axis in m/s^2
-    qreal az = acc->reading()->z(); //Linear acceleration along z axis in m/s^2
-    a_norm = sqrt(ax*ax + ay*ay + az*az);
 
     if(lastAccTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastAccTimestamp))/1000000.0f;
         if(deltaT > 0){
+            qreal ax = acc->reading()->x(); //Linear acceleration along x axis in m/s^2
+            qreal ay = acc->reading()->y(); //Linear acceleration along y axis in m/s^2
+            qreal az = acc->reading()->z(); //Linear acceleration along z axis in m/s^2
+            a_norm = sqrt(ax*ax + ay*ay + az*az);
 
             //Calculate observation value, predicted observation value and observation matrix
             //We assume here that the magnetometer reading is less frequent compared to accelerometer
@@ -305,18 +309,14 @@ void IMU::accReadingChanged()
 void IMU::magReadingChanged()
 {
     quint64 timestamp = mag->reading()->timestamp();
-    qreal mx = mag->reading()->x(); //Magnetic flux along x axis in Teslas
-    qreal my = mag->reading()->y(); //Magnetic flux along y axis in Teslas
-    qreal mz = mag->reading()->z(); //Magnetic flux along z axis in Teslas
 
     if(lastMagTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastMagTimestamp))/1000000.0f;
         if(deltaT > 0){
-
-            //Convert to milliTeslas
-            this->mx = mx*1000000.0f;
-            this->my = my*1000000.0f;
-            this->mz = mz*1000000.0f;
+            mx = mag->reading()->x()*1000000.0f; //Magnetic flux along x axis in milliTeslas
+            my = mag->reading()->y()*1000000.0f; //Magnetic flux along y axis in milliTeslas
+            mz = mag->reading()->z()*1000000.0f; //Magnetic flux along z axis in milliTeslas
+            m_norm = sqrt(mx*mx + my*my + mz*mz);
         }
     }
     lastMagTimestamp = timestamp;
@@ -402,7 +402,18 @@ void IMU::calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my,
     qreal R_DCM_z0 = 2*(q1*q3 - q0*q2);
     qreal R_DCM_z1 = 2*(q2*q3 + q0*q1);
     qreal R_DCM_z2 = q0*q0 - q1*q1 - q2*q2 + q3*q3;
-    qreal dot_m_z =  mx*R_DCM_z0 + my*R_DCM_z1 + mz*R_DCM_z2;
+    qreal dot_m_z = mx*R_DCM_z0 + my*R_DCM_z1 + mz*R_DCM_z2;
+    qreal m_dip_angle = acos(dot_m_z/m_norm);
+
+    //Calculate measured mean and dip angle of the magnetic vector
+    if(m_norm_mean < 0)
+        m_norm_mean = m_norm;
+    else
+        m_norm_mean = m_mean_alpha*m_norm_mean + (1.0f - m_mean_alpha)*m_norm;
+    if(m_dip_angle_mean < 0)
+        m_dip_angle_mean = m_dip_angle;
+    else
+        m_dip_angle_mean = m_mean_alpha*m_dip_angle_mean + (1.0f - m_mean_alpha)*m_dip_angle;
 
     //Calculate observation
     observation.at<qreal>(0) = ax;
@@ -438,7 +449,8 @@ void IMU::calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my,
 
     //Calculate observation noise
     qreal R_g = R_g_k_0 + R_g_k_w*w_norm + R_g_k_g*std::fabs(g - a_norm);
-    qreal R_x = R_x_k_0 + R_x_k_w*w_norm + R_x_k_g*std::fabs(g - a_norm);// + R_x_k_x*std::fabs(ux_norm - ux_norm_mean);
+    qreal R_x = R_y_k_0 + R_y_k_w*w_norm + R_y_k_g*std::fabs(g - a_norm) +
+        R_y_k_n*std::fabs(m_norm - m_norm_mean) + R_y_k_d*std::fabs(m_dip_angle - m_dip_angle_mean);
     filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
             R_g,    0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
             0.0f,   R_g,    0.0f,   0.0f,   0.0f,   0.0f,
