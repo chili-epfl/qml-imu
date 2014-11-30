@@ -285,7 +285,18 @@ private:
     cv::Mat statePreHistory;        ///< Previous value of the a priori state for quaternion sign correction
     cv::Mat statePostHistory;       ///< Previous value of the a posteriori state for quaternion sign correction
 
+    qreal R_g_k_0;                  ///< Gravity observation constant noise component
+    qreal R_g_k_w;                  ///< Gravity observation angular velocity dependent noise component
+    qreal R_g_k_g;                  ///< Gravity observation gravity norm dependent noise component
+    qreal R_x_k_0;                  ///< Unit x vector observation constant noise component
+    qreal R_x_k_w;                  ///< Unit x vector observation angular velocity dependent noise component
+    qreal R_x_k_g;                  ///< Unit x vector observation gravity norm dependent noise component
+    qreal R_x_k_x;                  ///< Unit x vector observation norm noise component
 
+    qreal w_norm;                   ///< Magnitude of the latest angular velocity, for noise calculation
+    qreal a_norm;                   ///< Magnitude of the latest acceleration, for noise calculation
+    qreal ux_norm_mean;             ///< Mean magnitude of the measured unit x vector
+    qreal ux_norm_mean_alpha;       ///< Smoothing factor for the mean unit x vector magnitude measurement
     qreal mx = 0;
     qreal my = 0;
     qreal mz = 0;
