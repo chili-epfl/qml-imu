@@ -46,12 +46,15 @@ IMU::IMU(QQuickItem* parent) :
     lastAccTimestamp(0),
     lastMagTimestamp(0),
     filter(4, 6, CV_TYPE),
+    startupTime(1.0f),
+    R_g_startup(1e-1f),
+    R_y_startup(1e-2f),
     R_g_k_0(1.0f),  //This depends on the two coefficients below
-    R_g_k_w(10.0f), //This depends on gyroscope sensor limits, typically 250 deg/s = 7.6 rad/s
-    R_g_k_g(7.5f),  //This depends on accelerometer sensor limits, typically 2g
+    R_g_k_w(7.5f),  //This depends on gyroscope sensor limits, typically 250 deg/s = 7.6 rad/s
+    R_g_k_g(10.0f), //This depends on accelerometer sensor limits, typically 2g
     R_y_k_0(10.0f),  //This depends on the four coefficients below
-    R_y_k_w(10.0f),  //This depends on gyroscope sensor limits, typically 250 deg/s = 7.6 rad/s
-    R_y_k_g(7.5f),   //This depends on the accelerometer sensor limits, typically 2g
+    R_y_k_w(7.5f),   //This depends on gyroscope sensor limits, typically 250 deg/s = 7.6 rad/s
+    R_y_k_g(10.0f),  //This depends on the accelerometer sensor limits, typically 2g
     R_y_k_n(20.0f),  //This depends on magnetic vector magnitude in milliTeslas
     R_y_k_d(15.0f),  //This depents on magnetic vector dip against floor vector, in radians
     mx(0.0f),
@@ -108,6 +111,7 @@ bool IMU::openGyro(QByteArray const& id)
 {
     QGyroscope* newGyro = new QGyroscope(this);
     newGyro->setIdentifier(id);
+    bool success = false;
 
     //Sensor is fine
     if(newGyro->connectToBackend()){
@@ -117,23 +121,25 @@ bool IMU::openGyro(QByteArray const& id)
         gyro = newGyro;
         connect(gyro, &QGyroscope::readingChanged, this, &IMU::gyroReadingChanged);
         gyro->setDataRate(1000); //Probably will not go this high and will reach maximum
-        gyro->start();
-        qDebug() << "Opened gyroscope with identifier " << id;
-        return true;
+        if(gyro->start()){
+            qDebug() << "Opened gyroscope with identifier " << id;
+            success = true;
+        }
     }
 
     //Sensor could not be opened for some reason
-    else{
+    if(!success){
         qDebug() << "Error: Could not open gyroscope with identifier " << id;
         delete newGyro;
-        return false;
     }
+    return success;
 }
 
 bool IMU::openAcc(QByteArray const& id)
 {
     QAccelerometer* newAcc = new QAccelerometer(this);
     newAcc->setIdentifier(id);
+    bool success = false;
 
     //Sensor is fine
     if(newAcc->connectToBackend()){
@@ -143,23 +149,25 @@ bool IMU::openAcc(QByteArray const& id)
         acc = newAcc;
         connect(acc, &QAccelerometer::readingChanged, this, &IMU::accReadingChanged);
         acc->setDataRate(1000); //Probably will not go this high and will reach maximum
-        acc->start();
-        qDebug() << "Opened accelerometer with identifier " << id;
-        return true;
+        if(acc->start()){
+            qDebug() << "Opened accelerometer with identifier " << id;
+            success = true;
+        }
     }
 
     //Sensor could not be opened for some reason
-    else{
+    if(!success){
         qDebug() << "Error: Could not open accelerometer with identifier " << id;
         delete newAcc;
-        return false;
     }
+    return success;
 }
 
 bool IMU::openMag(QByteArray const& id)
 {
     QMagnetometer* newMag = new QMagnetometer(this);
     newMag->setIdentifier(id);
+    bool success = false;
 
     //Sensor is fine
     if(newMag->connectToBackend()){
@@ -170,17 +178,18 @@ bool IMU::openMag(QByteArray const& id)
         connect(mag, &QMagnetometer::readingChanged, this, &IMU::magReadingChanged);
         mag->setDataRate(1000); //Probably will not go this high and will reach maximum
         mag->setReturnGeoValues(true); //Try to cancel out magnetic interference
-        mag->start();
-        qDebug() << "Opened magnetometer with identifier " << id;
-        return true;
+        if(mag->start()){
+            qDebug() << "Opened magnetometer with identifier " << id;
+            success = true;
+        }
     }
 
     //Sensor could not be opened for some reason
-    else{
+    if(!success){
         qDebug() << "Error: Could not open magnetometer with identifier " << id;
         delete newMag;
-        return false;
     }
+    return success;
 }
 
 QString IMU::getGyroId()
@@ -247,6 +256,14 @@ void IMU::gyroReadingChanged()
     if(lastGyroTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastGyroTimestamp))/1000000.0f;
         if(deltaT > 0){
+
+            //Take care of startup time
+            if(startupTime > 0){
+                startupTime -= deltaT;
+                if(startupTime < 0)
+                    qDebug() << "Startup is over";
+            }
+
             qreal wx = qDegreesToRadians(gyro->reading()->x()); //Angular velocity around x axis in rad/s
             qreal wy = qDegreesToRadians(gyro->reading()->y()); //Angular velocity around y axis in rad/s
             qreal wz = qDegreesToRadians(gyro->reading()->z()); //Angular velocity around z axis in rad/s
@@ -404,13 +421,15 @@ void IMU::calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my,
     qreal R_DCM_z2 = q0*q0 - q1*q1 - q2*q2 + q3*q3;
     qreal dot_m_z = mx*R_DCM_z0 + my*R_DCM_z1 + mz*R_DCM_z2;
     qreal m_dip_angle = acos(dot_m_z/m_norm);
+    if(std::isnan(m_dip_angle))
+        m_dip_angle = 0.0f;
 
     //Calculate measured mean and dip angle of the magnetic vector
-    if(m_norm_mean < 0)
+    if(m_norm_mean < 0) //For fast startup
         m_norm_mean = m_norm;
     else
         m_norm_mean = m_mean_alpha*m_norm_mean + (1.0f - m_mean_alpha)*m_norm;
-    if(m_dip_angle_mean < 0)
+    if(m_dip_angle_mean < 0) //For fast startup
         m_dip_angle_mean = m_dip_angle;
     else
         m_dip_angle_mean = m_mean_alpha*m_dip_angle_mean + (1.0f - m_mean_alpha)*m_dip_angle;
@@ -426,9 +445,11 @@ void IMU::calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my,
             observation.at<qreal>(3)*observation.at<qreal>(3) +
             observation.at<qreal>(4)*observation.at<qreal>(4) +
             observation.at<qreal>(5)*observation.at<qreal>(5));
-    observation.at<qreal>(3) /= uy_norm;
-    observation.at<qreal>(4) /= uy_norm;
-    observation.at<qreal>(5) /= uy_norm;
+    if(uy_norm > EPSILON){
+        observation.at<qreal>(3) /= uy_norm;
+        observation.at<qreal>(4) /= uy_norm;
+        observation.at<qreal>(5) /= uy_norm;
+    }
 
     //Calculate predicted observation
     predictedObservation.at<qreal>(0) = R_DCM_z0*g;
@@ -448,16 +469,27 @@ void IMU::calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my,
             -2*q1,      -2*q0,      +2*q3,      +2*q2);
 
     //Calculate observation noise
-    qreal R_g = R_g_k_0 + R_g_k_w*w_norm + R_g_k_g*std::fabs(g - a_norm);
-    qreal R_x = R_y_k_0 + R_y_k_w*w_norm + R_y_k_g*std::fabs(g - a_norm) +
-        R_y_k_n*std::fabs(m_norm - m_norm_mean) + R_y_k_d*std::fabs(m_dip_angle - m_dip_angle_mean);
-    filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
-            R_g,    0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
-            0.0f,   R_g,    0.0f,   0.0f,   0.0f,   0.0f,
-            0.0f,   0.0f,   R_g,    0.0f,   0.0f,   0.0f,
-            0.0f,   0.0f,   0.0f,   R_x,    0.0f,   0.0f,
-            0.0f,   0.0f,   0.0f,   0.0f,   R_x,    0.0f,
-            0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   R_x);
+    if(startupTime > 0){
+        filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
+                R_g_startup,    0.0f,           0.0f,           0.0f,           0.0f,           0.0f,
+                0.0f,           R_g_startup,    0.0f,           0.0f,           0.0f,           0.0f,
+                0.0f,           0.0f,           R_g_startup,    0.0f,           0.0f,           0.0f,
+                0.0f,           0.0f,           0.0f,           R_y_startup,    0.0f,           0.0f,
+                0.0f,           0.0f,           0.0f,           0.0f,           R_y_startup,    0.0f,
+                0.0f,           0.0f,           0.0f,           0.0f,           0.0f,           R_y_startup);
+    }
+    else{
+        qreal R_g = R_g_k_0 + R_g_k_w*w_norm + R_g_k_g*std::fabs(g - a_norm);
+        qreal R_x = R_y_k_0 + R_y_k_w*w_norm + R_y_k_g*std::fabs(g - a_norm) +
+            R_y_k_n*std::fabs(m_norm - m_norm_mean) + R_y_k_d*std::fabs(m_dip_angle - m_dip_angle_mean);
+        filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
+                R_g,    0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
+                0.0f,   R_g,    0.0f,   0.0f,   0.0f,   0.0f,
+                0.0f,   0.0f,   R_g,    0.0f,   0.0f,   0.0f,
+                0.0f,   0.0f,   0.0f,   R_x,    0.0f,   0.0f,
+                0.0f,   0.0f,   0.0f,   0.0f,   R_x,    0.0f,
+                0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   R_x);
+    }
 }
 
 void IMU::calculateOutputRotation()
@@ -470,6 +502,9 @@ void IMU::calculateOutputRotation()
         qDebug() << "Warning: Operating without an accelerometer, results will drift!";
     if(magId == "")
         qDebug() << "Warning: Operating without a magnetometer, results will drift!";
+
+    if(startupTime > 0)
+        return;
 
     rotAngle = sqrt(
             filter.statePost.at<qreal>(1)*filter.statePost.at<qreal>(1) +

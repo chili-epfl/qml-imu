@@ -285,6 +285,10 @@ private:
     cv::Mat statePreHistory;        ///< Previous value of the a priori state for quaternion sign correction
     cv::Mat statePostHistory;       ///< Previous value of the a posteriori state for quaternion sign correction
 
+    qreal startupTime;              ///< Time to spend with low R entries for a fast initial stabilization of absolute axes
+    qreal R_g_startup;              ///< Diagonal entries of gravity obs noise during startup, must be lower than usual
+    qreal R_y_startup;              ///< Diagonal entries of magnetometer obs noise during startup, must be lower than usual
+
     qreal R_g_k_0;                  ///< Gravity observation constant noise coefficient
     qreal R_g_k_w;                  ///< Gravity observation angular velocity dependent noise coefficient
     qreal R_g_k_g;                  ///< Gravity observation gravity norm dependent noise coefficient
