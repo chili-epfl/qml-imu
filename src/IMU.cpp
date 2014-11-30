@@ -45,6 +45,9 @@ IMU::IMU(QQuickItem* parent) :
     lastGyroTimestamp(0),
     lastAccTimestamp(0),
     lastMagTimestamp(0),
+    gyroSilentCycles(0),
+    accSilentCycles(0),
+    magSilentCycles(0),
     filter(4, 6, CV_TYPE),
     startupTime(1.0f),
     R_g_startup(1e-1f),
@@ -256,6 +259,7 @@ void IMU::gyroReadingChanged()
     if(lastGyroTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastGyroTimestamp))/1000000.0f;
         if(deltaT > 0){
+            gyroSilentCycles = 0;
 
             //Take care of startup time
             if(startupTime > 0){
@@ -298,6 +302,7 @@ void IMU::accReadingChanged()
     if(lastAccTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastAccTimestamp))/1000000.0f;
         if(deltaT > 0){
+            accSilentCycles = 0;
             qreal ax = acc->reading()->x(); //Linear acceleration along x axis in m/s^2
             qreal ay = acc->reading()->y(); //Linear acceleration along y axis in m/s^2
             qreal az = acc->reading()->z(); //Linear acceleration along z axis in m/s^2
@@ -330,6 +335,7 @@ void IMU::magReadingChanged()
     if(lastMagTimestamp > 0){
         qreal deltaT = ((qreal)(timestamp - lastMagTimestamp))/1000000.0f;
         if(deltaT > 0){
+            magSilentCycles = 0;
             mx = mag->reading()->x()*1000000.0f; //Magnetic flux along x axis in milliTeslas
             my = mag->reading()->y()*1000000.0f; //Magnetic flux along y axis in milliTeslas
             mz = mag->reading()->z()*1000000.0f; //Magnetic flux along z axis in milliTeslas
@@ -498,10 +504,25 @@ void IMU::calculateOutputRotation()
         qDebug() << "Error: Cannot operate without a gyroscope!";
         return;
     }
+    else{
+        gyroSilentCycles++;
+        if(gyroSilentCycles > 1000)
+            qDebug() << "Warning: Gyroscope is open but didn't receive data for " << gyroSilentCycles << " cycles!";
+    }
     if(accId == "")
         qDebug() << "Warning: Operating without an accelerometer, results will drift!";
+    else{
+        accSilentCycles++;
+        if(accSilentCycles > 1000)
+            qDebug() << "Warning: Accelerometer is open but didn't receive data for " << accSilentCycles << " cycles!";
+    }
     if(magId == "")
         qDebug() << "Warning: Operating without a magnetometer, results will drift!";
+    else{
+        magSilentCycles++;
+        if(magSilentCycles > 1000)
+            qDebug() << "Warning: Magnetometer is open but didn't receive data for " << magSilentCycles << " cycles!";
+    }
 
     if(startupTime > 0)
         return;

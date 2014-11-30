@@ -275,6 +275,10 @@ private:
     quint64 lastAccTimestamp;       ///< Most recent accelerometer measurement timestamp
     quint64 lastMagTimestamp;       ///< Most recent magnetometer measurement timestamp
 
+    unsigned int gyroSilentCycles;  ///< Data publish cycles without gyroscope data
+    unsigned int accSilentCycles;   ///< Data publish cycles without accelerometer data
+    unsigned int magSilentCycles;   ///< Data publish cycles without magnetometer data
+
     ExtendedKalmanFilter filter;    ///< Filter that estimates current tilt and linear acceleration in ground frame
 
     cv::Mat Q;                      ///< Base for process noise covariance matrix
