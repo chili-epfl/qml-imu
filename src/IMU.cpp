@@ -60,9 +60,7 @@ IMU::IMU(QQuickItem* parent) :
     R_y_k_g(10.0f),  //This depends on the accelerometer sensor limits, typically 2g
     R_y_k_n(20.0f),  //This depends on magnetic vector magnitude in milliTeslas
     R_y_k_d(15.0f),  //This depents on magnetic vector dip against floor vector, in radians
-    mx(0.0f),
-    my(0.0f),
-    mz(0.0f),
+    magDataReady(false),
     m_norm_mean(-1),
     m_dip_angle_mean(-1),
     m_mean_alpha(0.99f)
@@ -257,24 +255,24 @@ void IMU::gyroReadingChanged()
     quint64 timestamp = gyro->reading()->timestamp();
 
     if(lastGyroTimestamp > 0){
-        qreal deltaT = ((qreal)(timestamp - lastGyroTimestamp))/1000000.0f;
-        if(deltaT > 0){
+        wDeltaT = ((qreal)(timestamp - lastGyroTimestamp))/1000000.0f;
+        if(wDeltaT > 0){
             gyroSilentCycles = 0;
 
             //Take care of startup time
             if(startupTime > 0){
-                startupTime -= deltaT;
+                startupTime -= wDeltaT;
                 if(startupTime < 0)
                     qDebug() << "Startup is over";
             }
 
-            qreal wx = qDegreesToRadians(gyro->reading()->x()); //Angular velocity around x axis in rad/s
-            qreal wy = qDegreesToRadians(gyro->reading()->y()); //Angular velocity around y axis in rad/s
-            qreal wz = qDegreesToRadians(gyro->reading()->z()); //Angular velocity around z axis in rad/s
-            w_norm = sqrt(wx*wx + wy*wy + wz*wz);
+            w.setX(qDegreesToRadians(gyro->reading()->x())); //Angular velocity around x axis in rad/s
+            w.setY(qDegreesToRadians(gyro->reading()->y())); //Angular velocity around y axis in rad/s
+            w.setZ(qDegreesToRadians(gyro->reading()->z())); //Angular velocity around z axis in rad/s
+            w_norm = w.length();
 
             //Calculate process value, transition matrix and process noise covariance matrix
-            calculateProcess(wx,wy,wz,deltaT);
+            calculateProcess();
 
             //Do prediction step
             filter.predict(process);
@@ -299,18 +297,17 @@ void IMU::accReadingChanged()
 {
     quint64 timestamp = acc->reading()->timestamp();
 
-    if(lastAccTimestamp > 0){
-        qreal deltaT = ((qreal)(timestamp - lastAccTimestamp))/1000000.0f;
-        if(deltaT > 0){
+    if(lastAccTimestamp > 0)
+        if(((qreal)(timestamp - lastAccTimestamp))/1000000.0f > 0){
             accSilentCycles = 0;
-            qreal ax = acc->reading()->x(); //Linear acceleration along x axis in m/s^2
-            qreal ay = acc->reading()->y(); //Linear acceleration along y axis in m/s^2
-            qreal az = acc->reading()->z(); //Linear acceleration along z axis in m/s^2
-            a_norm = sqrt(ax*ax + ay*ay + az*az);
+            a.setX(acc->reading()->x()); //Linear acceleration along x axis in m/s^2
+            a.setY(acc->reading()->y()); //Linear acceleration along y axis in m/s^2
+            a.setZ(acc->reading()->z()); //Linear acceleration along z axis in m/s^2
+            a_norm = a.length();
 
             //Calculate observation value, predicted observation value and observation matrix
             //We assume here that the magnetometer reading is less frequent compared to accelerometer
-            calculateObservation(ax, ay, az, mx, my, mz);
+            calculateObservation();
 
             //Do correction step
             filter.correct(observation, predictedObservation);
@@ -324,7 +321,6 @@ void IMU::accReadingChanged()
             //Export rotation
             calculateOutputRotation();
         }
-    }
     lastAccTimestamp = timestamp;
 }
 
@@ -332,16 +328,15 @@ void IMU::magReadingChanged()
 {
     quint64 timestamp = mag->reading()->timestamp();
 
-    if(lastMagTimestamp > 0){
-        qreal deltaT = ((qreal)(timestamp - lastMagTimestamp))/1000000.0f;
-        if(deltaT > 0){
+    if(lastMagTimestamp > 0)
+        if(((qreal)(timestamp - lastMagTimestamp))/1000000.0f > 0){
             magSilentCycles = 0;
-            mx = mag->reading()->x()*1000000.0f; //Magnetic flux along x axis in milliTeslas
-            my = mag->reading()->y()*1000000.0f; //Magnetic flux along y axis in milliTeslas
-            mz = mag->reading()->z()*1000000.0f; //Magnetic flux along z axis in milliTeslas
-            m_norm = sqrt(mx*mx + my*my + mz*mz);
+            m.setX(mag->reading()->x()*1000000.0f); //Magnetic flux along x axis in milliTeslas
+            m.setY(mag->reading()->y()*1000000.0f); //Magnetic flux along y axis in milliTeslas
+            m.setZ(mag->reading()->z()*1000000.0f); //Magnetic flux along z axis in milliTeslas
+            m_norm = m.length();
+            magDataReady = true;
         }
-    }
     lastMagTimestamp = timestamp;
 }
 
@@ -387,40 +382,45 @@ inline void IMU::shortestPathQuat(cv::Mat& prevQuat, cv::Mat& quat)
     prevQuat.at<qreal>(3) = quat.at<qreal>(3);
 }
 
-void IMU::calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT)
+void IMU::calculateProcess()
 {
-
     //Calculate process value
     qreal q0 = filter.statePost.at<qreal>(0);
     qreal q1 = filter.statePost.at<qreal>(1);
     qreal q2 = filter.statePost.at<qreal>(2);
     qreal q3 = filter.statePost.at<qreal>(3);
+    const qreal wx = w.x();
+    const qreal wy = w.y();
+    const qreal wz = w.z();
 
-    process.at<qreal>(0) = q0 + 0.5f*deltaT*(-q1*wx - q2*wy - q3*wz);
-    process.at<qreal>(1) = q1 + 0.5f*deltaT*(+q0*wx - q3*wy + q2*wz);
-    process.at<qreal>(2) = q2 + 0.5f*deltaT*(+q3*wx + q0*wy - q1*wz);
-    process.at<qreal>(3) = q3 + 0.5f*deltaT*(-q2*wx + q1*wy + q0*wz);
+    process.at<qreal>(0) = q0 + 0.5f*wDeltaT*(-q1*wx - q2*wy - q3*wz);
+    process.at<qreal>(1) = q1 + 0.5f*wDeltaT*(+q0*wx - q3*wy + q2*wz);
+    process.at<qreal>(2) = q2 + 0.5f*wDeltaT*(+q3*wx + q0*wy - q1*wz);
+    process.at<qreal>(3) = q3 + 0.5f*wDeltaT*(-q2*wx + q1*wy + q0*wz);
 
     normalizeQuat(process);
 
     //Calculate transition matrix
     filter.transitionMatrix = (cv::Mat_<qreal>(4,4) <<
-            +1.0f,              -0.5f*deltaT*wx,    -0.5f*deltaT*wy,    -0.5f*deltaT*wz,
-            +0.5f*deltaT*wx,    +1.0f,              +0.5f*deltaT*wz,    -0.5f*deltaT*wy,
-            +0.5f*deltaT*wy,    -0.5f*deltaT*wz,    +1.0f,              +0.5f*deltaT*wx,
-            +0.5f*deltaT*wz,    +0.5f*deltaT*wy,    -0.5f*deltaT*wx,    +1.0f);
+            +1.0f,              -0.5f*wDeltaT*wx,   -0.5f*wDeltaT*wy,   -0.5f*wDeltaT*wz,
+            +0.5f*wDeltaT*wx,   +1.0f,              +0.5f*wDeltaT*wz,   -0.5f*wDeltaT*wy,
+            +0.5f*wDeltaT*wy,   -0.5f*wDeltaT*wz,   +1.0f,              +0.5f*wDeltaT*wx,
+            +0.5f*wDeltaT*wz,   +0.5f*wDeltaT*wy,   -0.5f*wDeltaT*wx,   +1.0f);
 
     //Calculate process covariance matrix
-    filter.processNoiseCov = Q*deltaT;
+    filter.processNoiseCov = Q*wDeltaT;
 }
 
-void IMU::calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my, qreal mz)
+void IMU::calculateObservation()
 {
     //Variables dependent on current state
     qreal q0 = filter.statePre.at<qreal>(0);
     qreal q1 = filter.statePre.at<qreal>(1);
     qreal q2 = filter.statePre.at<qreal>(2);
     qreal q3 = filter.statePre.at<qreal>(3);
+    qreal mx = m.x();
+    qreal my = m.y();
+    qreal mz = m.z();
     const qreal g = 9.81f;
     qreal R_DCM_z0 = 2*(q1*q3 - q0*q2);
     qreal R_DCM_z1 = 2*(q2*q3 + q0*q1);
@@ -441,9 +441,9 @@ void IMU::calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my,
         m_dip_angle_mean = m_mean_alpha*m_dip_angle_mean + (1.0f - m_mean_alpha)*m_dip_angle;
 
     //Calculate observation
-    observation.at<qreal>(0) = ax;
-    observation.at<qreal>(1) = ay;
-    observation.at<qreal>(2) = az;
+    observation.at<qreal>(0) = a.x();
+    observation.at<qreal>(1) = a.y();
+    observation.at<qreal>(2) = a.z();
     observation.at<qreal>(3) = mx - dot_m_z*R_DCM_z0; //Reject magnetic component on Z axis
     observation.at<qreal>(4) = my - dot_m_z*R_DCM_z1; //Reject magnetic component on Z axis
     observation.at<qreal>(5) = mz - dot_m_z*R_DCM_z2; //Reject magnetic component on Z axis
@@ -486,20 +486,21 @@ void IMU::calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my,
     }
     else{
         qreal R_g = R_g_k_0 + R_g_k_w*w_norm + R_g_k_g*std::fabs(g - a_norm);
-        qreal R_x = R_y_k_0 + R_y_k_w*w_norm + R_y_k_g*std::fabs(g - a_norm) +
+        qreal R_y = R_y_k_0 + R_y_k_w*w_norm + R_y_k_g*std::fabs(g - a_norm) +
             R_y_k_n*std::fabs(m_norm - m_norm_mean) + R_y_k_d*std::fabs(m_dip_angle - m_dip_angle_mean);
         filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
                 R_g,    0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
                 0.0f,   R_g,    0.0f,   0.0f,   0.0f,   0.0f,
                 0.0f,   0.0f,   R_g,    0.0f,   0.0f,   0.0f,
-                0.0f,   0.0f,   0.0f,   R_x,    0.0f,   0.0f,
-                0.0f,   0.0f,   0.0f,   0.0f,   R_x,    0.0f,
-                0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   R_x);
+                0.0f,   0.0f,   0.0f,   R_y,    0.0f,   0.0f,
+                0.0f,   0.0f,   0.0f,   0.0f,   R_y,    0.0f,
+                0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   R_y);
     }
 }
 
 void IMU::calculateOutputRotation()
 {
+    //Check existence and health of sensors
     if(gyroId == ""){
         qDebug() << "Error: Cannot operate without a gyroscope!";
         return;
@@ -524,9 +525,11 @@ void IMU::calculateOutputRotation()
             qDebug() << "Warning: Magnetometer is open but didn't receive data for " << magSilentCycles << " cycles!";
     }
 
+    //Do not give output in the startup phase
     if(startupTime > 0)
         return;
 
+    //Calculate output
     rotAngle = sqrt(
             filter.statePost.at<qreal>(1)*filter.statePost.at<qreal>(1) +
             filter.statePost.at<qreal>(2)*filter.statePost.at<qreal>(2) +

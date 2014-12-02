@@ -230,13 +230,8 @@ private:
      * Process value f(x'(k-1|k-1), U(k-1))
      * Transition matrix F(k-1)
      * Process noise covariance matrix Q(k-1)
-     *
-     * @param wx Control input, i.e angular speed around x axis in rad/s
-     * @param wy Control input, i.e angular speed around y axis in rad/s
-     * @param wz Control input, i.e angular speed around z axis in rad/s
-     * @param deltaT Time since previous control measurement
      */
-    void calculateProcess(qreal wx, qreal wy, qreal wz, qreal deltaT);
+    void calculateProcess();
 
     /**
      * @brief Calculates and records predicted observation values
@@ -245,15 +240,8 @@ private:
      * Observation value z(k)
      * Predicted observation value h(x'(k|k+1))
      * Observation matrix H(k)
-     *
-     * @param ax Measured linear acceleration along local x axis
-     * @param ay Measured linear acceleration along local y axis
-     * @param az Measured linear acceleration along local z axis
-     * @param mx Measured magnetic flux along local x axis
-     * @param my Measured magnetic flux along local y axis
-     * @param mz Measured magnetic flux along local z axis
      */
-    void calculateObservation(qreal ax, qreal ay, qreal az, qreal mx, qreal my, qreal mz);
+    void calculateObservation();
 
     /**
      * @brief Calculates and stores the rotation in angle-axis representation
@@ -302,9 +290,11 @@ private:
     qreal R_y_k_n;                  ///< Unit y vector observation norm noise coefficient
     qreal R_y_k_d;                  ///< Unit y vector observation dip angle noise coefficient
 
-    qreal mx;                       ///< X component of latest magnetic vector in local frame
-    qreal my;                       ///< Y component of latest magnetic vector in local frame
-    qreal mz;                       ///< Z component of latest magnetic vector in local frame
+    QVector3D w;                    ///< Latest angular velocity in local frame in rad/s
+    qreal wDeltaT;                  ///< Latest time slice for angular velocity
+    QVector3D a;                    ///< Latest acceleration vector in local frame in m/s^2
+    QVector3D m;                    ///< Latest magnetic vector in local frame in milliTeslas
+    bool magDataReady;              ///< Whether new magnetometer data arrived
 
     qreal w_norm;                   ///< Magnitude of the latest angular velocity, for noise calculation
     qreal a_norm;                   ///< Magnitude of the latest acceleration, for noise calculation
