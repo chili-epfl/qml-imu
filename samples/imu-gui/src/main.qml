@@ -28,19 +28,26 @@ Window {
         }
 
         Item3D{
-            id: arrow
-            mesh: Mesh{ source: "/assets/arrow.dae" }
+            id: frame
+            mesh: Mesh{ source: "/assets/arrow_x_y_z.dae" }
             transform: [
                 Rotation3D{ axis: imu.rotAxis; angle: -imu.rotAngle },
                 Translation3D{ translate: Qt.vector3d(0,0,-10) }
             ]
         }
 
-        Sphere{
-            radius: 1
-            effect: Effect{ color: "#00FFFF" }
+        Item3D{
+            id: accArrow
+            mesh: Mesh{ source: "/assets/arrow_z_cyan.dae" }
             transform: [
-                Translation3D{ translate: imu.linearAcceleration.times(0.5) },
+                Scale3D { scale: Qt.vector3d(1, 1, imu.linearAcceleration.length()/9.81) }, //Assume 1g is one unit of scale
+                Rotation3D{ //Turn to direction of acceleration
+                    function angleBetween(a,b){
+                        return 180*Math.acos(a.dotProduct(b)/a.length()/b.length())/Math.PI;
+                    }
+                    axis: imu.linearAcceleration.crossProduct(Qt.vector3d(0,0,1));
+                    angle: -angleBetween(imu.linearAcceleration,Qt.vector3d(0,0,1))
+                },
                 Rotation3D{ axis: imu.rotAxis; angle: -imu.rotAngle },
                 Translation3D{ translate: Qt.vector3d(0,0,-10) }
             ]
