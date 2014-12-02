@@ -45,8 +45,9 @@ Q_OBJECT
     Q_PROPERTY(QString gyroId READ getGyroId WRITE setGyroId NOTIFY gyroIdChanged)
     Q_PROPERTY(QString accId READ getAccId WRITE setAccId NOTIFY accIdChanged)
     Q_PROPERTY(QString magId READ getMagId WRITE setMagId NOTIFY magIdChanged)
-    Q_PROPERTY(QVector3D rotAxis READ getRotAxis NOTIFY rotationChanged)
-    Q_PROPERTY(qreal rotAngle READ getRotAngle NOTIFY rotationChanged)
+    Q_PROPERTY(QVector3D rotAxis READ getRotAxis NOTIFY stateChanged)
+    Q_PROPERTY(qreal rotAngle READ getRotAngle NOTIFY stateChanged)
+    Q_PROPERTY(QVector3D linearAcceleration READ getLinearAcceleration NOTIFY stateChanged)
 
 public:
 
@@ -124,6 +125,13 @@ public:
      */
     qreal getRotAngle();
 
+    /**
+     * @brief Returns the latest estimated linear acceleration in ground inertial frame
+     *
+     * @return Latest estimated linear acceleration in m/s^2
+     */
+    QVector3D getLinearAcceleration();
+
 public slots:
 
     /**
@@ -150,7 +158,6 @@ private slots:
      */
     void magReadingChanged();
 
-
 signals:
 
     /**
@@ -169,9 +176,9 @@ signals:
     void magIdChanged();
 
     /**
-     * @brief Emitted when the estimated rotation is changed
+     * @brief Emitted when the estimated rotation and linear acceleration changes
      */
-    void rotationChanged();
+    void stateChanged();
 
 private:
 
@@ -308,6 +315,8 @@ private:
     QVector3D rotAxis;
     qreal rotAngle;
     /// @}
+
+    QVector3D linearAcceleration;   ///< Linear acceleration w.r.t ground inertial frame in m/s^2
 };
 
 #endif /* IMU_H */

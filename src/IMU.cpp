@@ -48,7 +48,7 @@ IMU::IMU(QQuickItem* parent) :
     gyroSilentCycles(0),
     accSilentCycles(0),
     magSilentCycles(0),
-    filter(4, 6, CV_TYPE),
+    filter(7, 6, CV_TYPE),
     startupTime(1.0f),
     R_g_startup(1e-1f),
     R_y_startup(1e-3f),
@@ -83,21 +83,33 @@ IMU::IMU(QQuickItem* parent) :
             }
 
     //Just do assumptions for initial values
-    process =           (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
-    filter.statePre =   (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
-    statePreHistory =   (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
-    filter.statePost =  (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
-    statePostHistory =  (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+    process =           (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    filter.statePre =   (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+    statePreHistory =   (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+    filter.statePost =  (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f ,0.0f);
+    statePostHistory =  (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f);
 
     observation =           (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, 9.81f, 0.0f, 1.0f, 0.0f);
     predictedObservation =  (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, 9.81f, 0.0f, 1.0f, 0.0f);
 
+    filter.transitionMatrix = (cv::Mat_<qreal>(7,7) <<
+            1.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   1.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   1.0f,   0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   1.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f);
+
     //Process noise covariance matrix is deltaT*Q at each step
-    Q = (cv::Mat_<qreal>(4,4) <<
-            1e-4f,  0.0f,   0.0f,   0.0f,
-            0.0f,   1e-4f,  0.0f,   0.0f,
-            0.0f,   0.0f,   1e-4f,  0.0f,
-            0.0f,   0.0f,   0.0f,   1e-4f);
+    Q = (cv::Mat_<qreal>(7,7) <<
+            1e-4f,  0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   1e-4f,  0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   1e-4f,  0.0f,   0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   1e-4f,  0.0f,   0.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   0.0f,   1e-2f,  0.0f,   0.0f,
+            0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   1e-2f,  0.0f,
+            0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   1e-2f);
     Q.copyTo(filter.errorCovPre);
 }
 
@@ -385,6 +397,9 @@ void IMU::calculateProcess()
     qreal* F1 = (qreal*)filter.transitionMatrix.ptr(1);
     qreal* F2 = (qreal*)filter.transitionMatrix.ptr(2);
     qreal* F3 = (qreal*)filter.transitionMatrix.ptr(3);
+    qreal* F4 = (qreal*)filter.transitionMatrix.ptr(4);
+    qreal* F5 = (qreal*)filter.transitionMatrix.ptr(5);
+    qreal* F6 = (qreal*)filter.transitionMatrix.ptr(6);
 
     //Calculate process value
     const qreal q0 = filter.statePost.at<qreal>(0);
@@ -394,19 +409,31 @@ void IMU::calculateProcess()
     const qreal wx = w.x();
     const qreal wy = w.y();
     const qreal wz = w.z();
+    const qreal ax = a.x();
+    const qreal ay = a.y();
+    const qreal az = a.z();
+    const qreal g = 9.81f;
 
     processPtr[0] = q0 + 0.5f*wDeltaT*(-q1*wx - q2*wy - q3*wz);
     processPtr[1] = q1 + 0.5f*wDeltaT*(+q0*wx - q3*wy + q2*wz);
     processPtr[2] = q2 + 0.5f*wDeltaT*(+q3*wx + q0*wy - q1*wz);
     processPtr[3] = q3 + 0.5f*wDeltaT*(-q2*wx + q1*wy + q0*wz);
 
+    processPtr[4] = (q0*q0 + q1*q1 - q2*q2 - q3*q3)*ax + 2*(q1*q2 - q0*q3)*ay + 2*(q1*q3 + q0*q2)*az;
+    processPtr[5] = 2*(q1*q2 + q0*q3)*ax + (q0*q0 - q1*q1 + q2*q2 - q3*q3)*ay + 2*(q2*q3 - q0*q1)*az;
+    processPtr[6] = 2*(q1*q3 - q0*q2)*ax + 2*(q2*q3 + q0*q1)*ay + (q0*q0 - q1*q1 - q2*q2 + q3*q3)*az - g;
+
     normalizeQuat(process);
 
-    //Calculate transition matrix
+    //Calculate transition matrix (the rightmost three columns are always zero)
     /* F0[0] = +1.0f; */        F0[1] = -0.5f*wDeltaT*wx;   F0[2] = -0.5f*wDeltaT*wy;   F0[3] = -0.5f*wDeltaT*wz;
     F1[0] = +0.5f*wDeltaT*wx;   /* F1[1] = +1.0f; */        F1[2] = +0.5f*wDeltaT*wz;   F1[3] = -0.5f*wDeltaT*wy;
     F2[0] = +0.5f*wDeltaT*wy;   F2[1] = -0.5f*wDeltaT*wz;   /* F2[2] = +1.0f; */        F2[3] = +0.5f*wDeltaT*wx;
     F3[0] = +0.5f*wDeltaT*wz;   F3[1] = +0.5f*wDeltaT*wy;   F3[2] = -0.5f*wDeltaT*wx;   /* F3[3] = +1.0f; */
+
+    F4[0] = 2*(+q0*ax - q3*ay + q2*az); F4[1] = 2*(+q1*ax + q2*ay + q3*az); F4[2] = 2*(-q2*ax + q1*ay + q0*az); F4[3] = 2*(-q3*ax - q0*ay + q1*az);
+    F5[0] = 2*(+q3*ax + q0*ay - q1*az); F5[1] = 2*(+q2*ax - q1*ay - q0*az); F5[2] = 2*(+q1*ax + q2*ay + q3*az); F5[3] = 2*(+q0*ax - q3*ay + q2*az);
+    F6[0] = 2*(-q2*ax + q1*ay + q0*az); F6[1] = 2*(+q3*ax + q0*ay - q1*az); F6[2] = 2*(-q0*ax + q3*ay - q2*az); F6[3] = 2*(+q1*ax + q2*ay + q3*az);
 
     //Calculate process covariance matrix
     filter.processNoiseCov = Q*wDeltaT;
@@ -566,10 +593,10 @@ void IMU::calculateOutputRotation()
     if(startupTime > 0)
         return;
 
-    //Calculate output
-    qreal* q = (qreal*)filter.statePost.ptr();
-    rotAngle = sqrt(q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
-    rotAngle = 2*atan2(rotAngle, q[0]);
+    //Calculate output rotation
+    qreal* s = (qreal*)filter.statePost.ptr();
+    rotAngle = sqrt(s[1]*s[1] + s[2]*s[2] + s[3]*s[3]);
+    rotAngle = 2*atan2(rotAngle, s[0]);
     if(rotAngle < EPSILON){
         rotAxis.setX(0.0f);
         rotAxis.setY(0.0f);
@@ -578,13 +605,18 @@ void IMU::calculateOutputRotation()
     }
     else{
         qreal sTheta2 = sin(rotAngle/2);
-        rotAxis.setX(q[1]*sTheta2);
-        rotAxis.setY(q[2]*sTheta2);
-        rotAxis.setZ(q[3]*sTheta2);
+        rotAxis.setX(s[1]*sTheta2);
+        rotAxis.setY(s[2]*sTheta2);
+        rotAxis.setZ(s[3]*sTheta2);
         rotAngle = qRadiansToDegrees(rotAngle);
     }
 
-    emit rotationChanged();
+    //Output linear acceleration
+    linearAcceleration.setX(s[4]);
+    linearAcceleration.setY(s[5]);
+    linearAcceleration.setZ(s[6]);
+
+    emit stateChanged();
 }
 
 QVector3D IMU::getRotAxis()
@@ -595,6 +627,11 @@ QVector3D IMU::getRotAxis()
 qreal IMU::getRotAngle()
 {
     return rotAngle;
+}
+
+QVector3D IMU::getLinearAcceleration()
+{
+    return linearAcceleration;
 }
 
 void IMU::changeParent(QQuickItem* parent)

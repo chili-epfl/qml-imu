@@ -1,6 +1,7 @@
 import QtQuick 2.2
 import QtQuick.Window 2.1
 import Qt3D 2.0
+import Qt3D.Shapes 2.0
 import IMU 1.0
 
 Window {
@@ -30,6 +31,16 @@ Window {
             id: arrow
             mesh: Mesh{ source: "/assets/arrow.dae" }
             transform: [
+                Rotation3D{ axis: imu.rotAxis; angle: -imu.rotAngle },
+                Translation3D{ translate: Qt.vector3d(0,0,-10) }
+            ]
+        }
+
+        Sphere{
+            radius: 1
+            effect: Effect{ color: "#00FFFF" }
+            transform: [
+                Translation3D{ translate: imu.linearAcceleration.times(0.5) },
                 Rotation3D{ axis: imu.rotAxis; angle: -imu.rotAngle },
                 Translation3D{ translate: Qt.vector3d(0,0,-10) }
             ]
