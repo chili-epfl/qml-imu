@@ -51,7 +51,7 @@ IMU::IMU(QQuickItem* parent) :
     filter(4, 6, CV_TYPE),
     startupTime(1.0f),
     R_g_startup(1e-1f),
-    R_y_startup(1e-2f),
+    R_y_startup(1e-3f),
     R_g_k_0(1.0f),  //This depends on the two coefficients below
     R_g_k_w(7.5f),  //This depends on gyroscope sensor limits, typically 250 deg/s = 7.6 rad/s
     R_g_k_g(10.0f), //This depends on accelerometer sensor limits, typically 2g
@@ -342,70 +342,71 @@ void IMU::magReadingChanged()
 
 inline void IMU::normalizeQuat(cv::Mat& quat)
 {
-    qreal norm = sqrt(
-            quat.at<qreal>(0)*quat.at<qreal>(0) +
-            quat.at<qreal>(1)*quat.at<qreal>(1) +
-            quat.at<qreal>(2)*quat.at<qreal>(2) +
-            quat.at<qreal>(3)*quat.at<qreal>(3));
-
+    qreal* q = (qreal*)quat.ptr();
+    qreal norm = sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
     if(norm > EPSILON){
-        quat.at<qreal>(0) /= norm;
-        quat.at<qreal>(1) /= norm;
-        quat.at<qreal>(2) /= norm;
-        quat.at<qreal>(3) /= norm;
+        q[0] /= norm;
+        q[1] /= norm;
+        q[2] /= norm;
+        q[3] /= norm;
     }
     else{
-        quat.at<qreal>(0) = 1.0f;
-        quat.at<qreal>(1) = 0.0f;
-        quat.at<qreal>(2) = 0.0f;
-        quat.at<qreal>(3) = 0.0f;
+        q[0] = 1.0f;
+        q[1] = 1.0f;
+        q[2] = 1.0f;
+        q[3] = 1.0f;
     }
 }
 
 inline void IMU::shortestPathQuat(cv::Mat& prevQuat, cv::Mat& quat)
 {
+    qreal* p = (qreal*)prevQuat.ptr();
+    qreal* q = (qreal*)quat.ptr();
+
     //If -q would be closer to q_prev than +q, replace new q with -q
     //The following comes from the derivation of |q - q_prev|^2 - |-q - q_prev|^2
-    if(
-            quat.at<qreal>(0)*prevQuat.at<qreal>(0) +
-            quat.at<qreal>(1)*prevQuat.at<qreal>(1) +
-            quat.at<qreal>(2)*prevQuat.at<qreal>(2) +
-            quat.at<qreal>(3)*prevQuat.at<qreal>(3) < 0){
-        quat.at<qreal>(0) = -quat.at<qreal>(0);
-        quat.at<qreal>(1) = -quat.at<qreal>(1);
-        quat.at<qreal>(2) = -quat.at<qreal>(2);
-        quat.at<qreal>(3) = -quat.at<qreal>(3);
+    if(q[0]*p[0] + q[1]*p[1] + q[2]*p[2] + q[3]*p[3] < 0){
+        q[0] = -q[0];
+        q[1] = -q[1];
+        q[2] = -q[2];
+        q[3] = -q[3];
     }
-    prevQuat.at<qreal>(0) = quat.at<qreal>(0);
-    prevQuat.at<qreal>(1) = quat.at<qreal>(1);
-    prevQuat.at<qreal>(2) = quat.at<qreal>(2);
-    prevQuat.at<qreal>(3) = quat.at<qreal>(3);
+    p[0] = q[0];
+    p[1] = q[1];
+    p[2] = q[2];
+    p[3] = q[3];
 }
 
 void IMU::calculateProcess()
 {
+    //cv::Mat data pointers
+    qreal* processPtr = (qreal*)process.ptr();
+    qreal* F0 = (qreal*)filter.transitionMatrix.ptr(0);
+    qreal* F1 = (qreal*)filter.transitionMatrix.ptr(1);
+    qreal* F2 = (qreal*)filter.transitionMatrix.ptr(2);
+    qreal* F3 = (qreal*)filter.transitionMatrix.ptr(3);
+
     //Calculate process value
-    qreal q0 = filter.statePost.at<qreal>(0);
-    qreal q1 = filter.statePost.at<qreal>(1);
-    qreal q2 = filter.statePost.at<qreal>(2);
-    qreal q3 = filter.statePost.at<qreal>(3);
+    const qreal q0 = filter.statePost.at<qreal>(0);
+    const qreal q1 = filter.statePost.at<qreal>(1);
+    const qreal q2 = filter.statePost.at<qreal>(2);
+    const qreal q3 = filter.statePost.at<qreal>(3);
     const qreal wx = w.x();
     const qreal wy = w.y();
     const qreal wz = w.z();
 
-    process.at<qreal>(0) = q0 + 0.5f*wDeltaT*(-q1*wx - q2*wy - q3*wz);
-    process.at<qreal>(1) = q1 + 0.5f*wDeltaT*(+q0*wx - q3*wy + q2*wz);
-    process.at<qreal>(2) = q2 + 0.5f*wDeltaT*(+q3*wx + q0*wy - q1*wz);
-    process.at<qreal>(3) = q3 + 0.5f*wDeltaT*(-q2*wx + q1*wy + q0*wz);
+    processPtr[0] = q0 + 0.5f*wDeltaT*(-q1*wx - q2*wy - q3*wz);
+    processPtr[1] = q1 + 0.5f*wDeltaT*(+q0*wx - q3*wy + q2*wz);
+    processPtr[2] = q2 + 0.5f*wDeltaT*(+q3*wx + q0*wy - q1*wz);
+    processPtr[3] = q3 + 0.5f*wDeltaT*(-q2*wx + q1*wy + q0*wz);
 
     normalizeQuat(process);
 
     //Calculate transition matrix
-    filter.transitionMatrix = (cv::Mat_<qreal>(4,4) <<
-            +1.0f,              -0.5f*wDeltaT*wx,   -0.5f*wDeltaT*wy,   -0.5f*wDeltaT*wz,
-            +0.5f*wDeltaT*wx,   +1.0f,              +0.5f*wDeltaT*wz,   -0.5f*wDeltaT*wy,
-            +0.5f*wDeltaT*wy,   -0.5f*wDeltaT*wz,   +1.0f,              +0.5f*wDeltaT*wx,
-            +0.5f*wDeltaT*wz,   +0.5f*wDeltaT*wy,   -0.5f*wDeltaT*wx,   +1.0f);
+    /* F0[0] = +1.0f; */        F0[1] = -0.5f*wDeltaT*wx;   F0[2] = -0.5f*wDeltaT*wy;   F0[3] = -0.5f*wDeltaT*wz;
+    F1[0] = +0.5f*wDeltaT*wx;   /* F1[1] = +1.0f; */        F1[2] = +0.5f*wDeltaT*wz;   F1[3] = -0.5f*wDeltaT*wy;
+    F2[0] = +0.5f*wDeltaT*wy;   F2[1] = -0.5f*wDeltaT*wz;   /* F2[2] = +1.0f; */        F2[3] = +0.5f*wDeltaT*wx;
+    F3[0] = +0.5f*wDeltaT*wz;   F3[1] = +0.5f*wDeltaT*wy;   F3[2] = -0.5f*wDeltaT*wx;   /* F3[3] = +1.0f; */
 
     //Calculate process covariance matrix
     filter.processNoiseCov = Q*wDeltaT;
@@ -413,23 +414,34 @@ void IMU::calculateProcess()
 
 void IMU::calculateObservation()
 {
+    //cv::Mat data pointers
+    qreal* statePrePtr = (qreal*)filter.statePre.ptr();
+    qreal* observationPtr = (qreal*)observation.ptr();
+    qreal* predictedObservationPtr = (qreal*)predictedObservation.ptr();
+    qreal* H0 = (qreal*)filter.observationMatrix.ptr(0);
+    qreal* H1 = (qreal*)filter.observationMatrix.ptr(1);
+    qreal* H2 = (qreal*)filter.observationMatrix.ptr(2);
+    qreal* H3 = (qreal*)filter.observationMatrix.ptr(3);
+    qreal* H4 = (qreal*)filter.observationMatrix.ptr(4);
+    qreal* H5 = (qreal*)filter.observationMatrix.ptr(5);
+
     //Variables dependent on current state
-    qreal q0 = filter.statePre.at<qreal>(0);
-    qreal q1 = filter.statePre.at<qreal>(1);
-    qreal q2 = filter.statePre.at<qreal>(2);
-    qreal q3 = filter.statePre.at<qreal>(3);
+    const qreal q0 = statePrePtr[0];
+    const qreal q1 = statePrePtr[1];
+    const qreal q2 = statePrePtr[2];
+    const qreal q3 = statePrePtr[3];
     const qreal g = 9.81f;
-    qreal R_DCM_z0 = 2*(q1*q3 - q0*q2);
-    qreal R_DCM_z1 = 2*(q2*q3 + q0*q1);
-    qreal R_DCM_z2 = q0*q0 - q1*q1 - q2*q2 + q3*q3;
+    const qreal R_DCM_z0 = 2*(q1*q3 - q0*q2);
+    const qreal R_DCM_z1 = 2*(q2*q3 + q0*q1);
+    const qreal R_DCM_z2 = q0*q0 - q1*q1 - q2*q2 + q3*q3;
 
     //Accelerometer observation and noise
-    observation.at<qreal>(0) = a.x();
-    observation.at<qreal>(1) = a.y();
-    observation.at<qreal>(2) = a.z();
-    predictedObservation.at<qreal>(0) = R_DCM_z0*g;
-    predictedObservation.at<qreal>(1) = R_DCM_z1*g;
-    predictedObservation.at<qreal>(2) = R_DCM_z2*g;
+    observationPtr[0] = a.x();
+    observationPtr[1] = a.y();
+    observationPtr[2] = a.z();
+    predictedObservationPtr[0] = R_DCM_z0*g;
+    predictedObservationPtr[1] = R_DCM_z1*g;
+    predictedObservationPtr[2] = R_DCM_z2*g;
     qreal R_g = R_g_k_0 + R_g_k_w*w_norm + R_g_k_g*std::fabs(g - a_norm);
 
     //Magnetometer reading variables and observation
@@ -439,7 +451,7 @@ void IMU::calculateObservation()
         qreal my = m.y();
         qreal mz = m.z();
 
-        qreal dot_m_z = mx*R_DCM_z0 + my*R_DCM_z1 + mz*R_DCM_z2;
+        const qreal dot_m_z = mx*R_DCM_z0 + my*R_DCM_z1 + mz*R_DCM_z2;
 
         qreal m_dip_angle = acos(dot_m_z/m_norm);
         if(std::isnan(m_dip_angle))
@@ -455,72 +467,69 @@ void IMU::calculateObservation()
         else
             m_dip_angle_mean = m_mean_alpha*m_dip_angle_mean + (1.0f - m_mean_alpha)*m_dip_angle;
 
-        observation.at<qreal>(3) = mx - dot_m_z*R_DCM_z0; //Reject magnetic component on Z axis
-        observation.at<qreal>(4) = my - dot_m_z*R_DCM_z1; //Reject magnetic component on Z axis
-        observation.at<qreal>(5) = mz - dot_m_z*R_DCM_z2; //Reject magnetic component on Z axis
-        qreal uy_norm = sqrt(
-                observation.at<qreal>(3)*observation.at<qreal>(3) +
-                observation.at<qreal>(4)*observation.at<qreal>(4) +
-                observation.at<qreal>(5)*observation.at<qreal>(5));
+        mx = mx - dot_m_z*R_DCM_z0; //Reject magnetic component on Z axis
+        my = my - dot_m_z*R_DCM_z1; //Reject magnetic component on Z axis
+        mz = mz - dot_m_z*R_DCM_z2; //Reject magnetic component on Z axis
+        qreal uy_norm = sqrt(mx*mx + my*my + mz*mz);
         if(uy_norm > EPSILON){
-            observation.at<qreal>(3) /= uy_norm;
-            observation.at<qreal>(4) /= uy_norm;
-            observation.at<qreal>(5) /= uy_norm;
+            mx /= uy_norm;
+            my /= uy_norm;
+            mz /= uy_norm;
         }
 
-        predictedObservation.at<qreal>(3) = 2*(q1*q2 + q0*q3);
-        predictedObservation.at<qreal>(4) = q0*q0 - q1*q1 + q2*q2 - q3*q3;
-        predictedObservation.at<qreal>(5) = 2*(q2*q3 - q0*q1);
+        observationPtr[3] = mx;
+        observationPtr[4] = my;
+        observationPtr[5] = mz;
+        predictedObservationPtr[3] = 2*(q1*q2 + q0*q3);
+        predictedObservationPtr[4] = q0*q0 - q1*q1 + q2*q2 - q3*q3;
+        predictedObservationPtr[5] = 2*(q2*q3 - q0*q1);
 
         R_y = R_y_k_0 + R_y_k_w*w_norm + R_y_k_g*std::fabs(g - a_norm) +
             R_y_k_n*std::fabs(m_norm - m_norm_mean) + R_y_k_d*std::fabs(m_dip_angle - m_dip_angle_mean);
     }
     else{
-        observation.at<qreal>(3) = 0.0f;
-        observation.at<qreal>(4) = 0.0f;
-        observation.at<qreal>(5) = 0.0f;
-        predictedObservation.at<qreal>(3) = 0.0f;
-        predictedObservation.at<qreal>(4) = 0.0f;
-        predictedObservation.at<qreal>(5) = 0.0f;
+        observationPtr[3] = 0.0f;
+        observationPtr[4] = 0.0f;
+        observationPtr[5] = 0.0f;
+        predictedObservationPtr[3] = 0.0f;
+        predictedObservationPtr[4] = 0.0f;
+        predictedObservationPtr[5] = 0.0f;
 
-        R_y = 1.0f;
+        R_y = 1.0f; //This doesn't matter, as long as it doesn't cause nans or infs in S^-1
     }
 
     //Calculate observation matrix
-    if(magDataReady)
-        filter.observationMatrix = (cv::Mat_<qreal>(6,4) <<
-                -2*g*q2,    +2*g*q3,    -2*g*q0,    +2*g*q1,
-                +2*g*q1,    +2*g*q0,    +2*g*q3,    +2*g*q2,
-                +2*g*q0,    -2*g*q1,    -2*g*q2,    +2*g*q3,
-                +2*q3,      +2*q2,      +2*q1,      +2*q0,
-                +2*q0,      -2*q1,      +2*q2,      -2*q3,
-                -2*q1,      -2*q0,      +2*q3,      +2*q2);
-    else
-        filter.observationMatrix = (cv::Mat_<qreal>(6,4) <<
-                -2*g*q2,    +2*g*q3,    -2*g*q0,    +2*g*q1,
-                +2*g*q1,    +2*g*q0,    +2*g*q3,    +2*g*q2,
-                +2*g*q0,    -2*g*q1,    -2*g*q2,    +2*g*q3,
-                0.0f,       0.0f,       0.0f,       0.0f,
-                0.0f,       0.0f,       0.0f,       0.0f,
-                0.0f,       0.0f,       0.0f,       0.0f);
+    H0[0] = -2*g*q2;  H0[1] = +2*g*q3;  H0[2] = -2*g*q0;  H0[3] = +2*g*q1;
+    H1[0] = +2*g*q1;  H1[1] = +2*g*q0;  H1[2] = +2*g*q3;  H1[3] = +2*g*q2;
+    H2[0] = +2*g*q0;  H2[1] = -2*g*q1;  H2[2] = -2*g*q2;  H2[3] = +2*g*q3;
+    if(magDataReady){
+        H3[0] = +2*q3;    H3[1] = +2*q2;    H3[2] = +2*q1;    H3[3] = +2*q0;
+        H4[0] = +2*q0;    H4[1] = -2*q1;    H4[2] = +2*q2;    H4[3] = -2*q3;
+        H5[0] = -2*q1;    H5[1] = -2*q0;    H5[2] = +2*q3;    H5[3] = +2*q2;
+    }
+    else{
+        H3[0] = 0.0f; H3[1] = 0.0f; H3[2] = 0.0f; H3[3] = 0.0f;
+        H4[0] = 0.0f; H4[1] = 0.0f; H4[2] = 0.0f; H4[3] = 0.0f;
+        H5[0] = 0.0f; H5[1] = 0.0f; H5[2] = 0.0f; H5[3] = 0.0f;
+    }
 
     //Calculate observation noise
-    if(startupTime > 0)
-        filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
-                R_g_startup,    0.0f,           0.0f,           0.0f,           0.0f,           0.0f,
-                0.0f,           R_g_startup,    0.0f,           0.0f,           0.0f,           0.0f,
-                0.0f,           0.0f,           R_g_startup,    0.0f,           0.0f,           0.0f,
-                0.0f,           0.0f,           0.0f,           R_y_startup,    0.0f,           0.0f,
-                0.0f,           0.0f,           0.0f,           0.0f,           R_y_startup,    0.0f,
-                0.0f,           0.0f,           0.0f,           0.0f,           0.0f,           R_y_startup);
-    else
-        filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
-                R_g,    0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
-                0.0f,   R_g,    0.0f,   0.0f,   0.0f,   0.0f,
-                0.0f,   0.0f,   R_g,    0.0f,   0.0f,   0.0f,
-                0.0f,   0.0f,   0.0f,   R_y,    0.0f,   0.0f,
-                0.0f,   0.0f,   0.0f,   0.0f,   R_y,    0.0f,
-                0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   R_y);
+    if(startupTime > 0){
+        filter.observationNoiseCov.at<qreal>(0,0) = R_g_startup;
+        filter.observationNoiseCov.at<qreal>(1,1) = R_g_startup;
+        filter.observationNoiseCov.at<qreal>(2,2) = R_g_startup;
+        filter.observationNoiseCov.at<qreal>(3,3) = R_y_startup;
+        filter.observationNoiseCov.at<qreal>(4,4) = R_y_startup;
+        filter.observationNoiseCov.at<qreal>(5,5) = R_y_startup;
+    }
+    else{
+        filter.observationNoiseCov.at<qreal>(0,0) = R_g;
+        filter.observationNoiseCov.at<qreal>(1,1) = R_g;
+        filter.observationNoiseCov.at<qreal>(2,2) = R_g;
+        filter.observationNoiseCov.at<qreal>(3,3) = R_y;
+        filter.observationNoiseCov.at<qreal>(4,4) = R_y;
+        filter.observationNoiseCov.at<qreal>(5,5) = R_y;
+    }
 
     //Consumed latest magnetometer data
     magDataReady = false;
@@ -558,11 +567,9 @@ void IMU::calculateOutputRotation()
         return;
 
     //Calculate output
-    rotAngle = sqrt(
-            filter.statePost.at<qreal>(1)*filter.statePost.at<qreal>(1) +
-            filter.statePost.at<qreal>(2)*filter.statePost.at<qreal>(2) +
-            filter.statePost.at<qreal>(3)*filter.statePost.at<qreal>(3));
-    rotAngle = 2*atan2(rotAngle, filter.statePost.at<qreal>(0));
+    qreal* q = (qreal*)filter.statePost.ptr();
+    rotAngle = sqrt(q[1]*q[1] + q[2]*q[2] + q[3]*q[3]);
+    rotAngle = 2*atan2(rotAngle, q[0]);
     if(rotAngle < EPSILON){
         rotAxis.setX(0.0f);
         rotAxis.setY(0.0f);
@@ -571,9 +578,9 @@ void IMU::calculateOutputRotation()
     }
     else{
         qreal sTheta2 = sin(rotAngle/2);
-        rotAxis.setX(filter.statePost.at<qreal>(1)*sTheta2);
-        rotAxis.setY(filter.statePost.at<qreal>(2)*sTheta2);
-        rotAxis.setZ(filter.statePost.at<qreal>(3)*sTheta2);
+        rotAxis.setX(q[1]*sTheta2);
+        rotAxis.setY(q[2]*sTheta2);
+        rotAxis.setZ(q[3]*sTheta2);
         rotAngle = qRadiansToDegrees(rotAngle);
     }
 
