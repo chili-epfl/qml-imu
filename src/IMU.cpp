@@ -418,64 +418,94 @@ void IMU::calculateObservation()
     qreal q1 = filter.statePre.at<qreal>(1);
     qreal q2 = filter.statePre.at<qreal>(2);
     qreal q3 = filter.statePre.at<qreal>(3);
-    qreal mx = m.x();
-    qreal my = m.y();
-    qreal mz = m.z();
     const qreal g = 9.81f;
     qreal R_DCM_z0 = 2*(q1*q3 - q0*q2);
     qreal R_DCM_z1 = 2*(q2*q3 + q0*q1);
     qreal R_DCM_z2 = q0*q0 - q1*q1 - q2*q2 + q3*q3;
-    qreal dot_m_z = mx*R_DCM_z0 + my*R_DCM_z1 + mz*R_DCM_z2;
-    qreal m_dip_angle = acos(dot_m_z/m_norm);
-    if(std::isnan(m_dip_angle))
-        m_dip_angle = 0.0f;
 
-    //Calculate measured mean and dip angle of the magnetic vector
-    if(m_norm_mean < 0) //For fast startup
-        m_norm_mean = m_norm;
-    else
-        m_norm_mean = m_mean_alpha*m_norm_mean + (1.0f - m_mean_alpha)*m_norm;
-    if(m_dip_angle_mean < 0) //For fast startup
-        m_dip_angle_mean = m_dip_angle;
-    else
-        m_dip_angle_mean = m_mean_alpha*m_dip_angle_mean + (1.0f - m_mean_alpha)*m_dip_angle;
-
-    //Calculate observation
+    //Accelerometer observation and noise
     observation.at<qreal>(0) = a.x();
     observation.at<qreal>(1) = a.y();
     observation.at<qreal>(2) = a.z();
-    observation.at<qreal>(3) = mx - dot_m_z*R_DCM_z0; //Reject magnetic component on Z axis
-    observation.at<qreal>(4) = my - dot_m_z*R_DCM_z1; //Reject magnetic component on Z axis
-    observation.at<qreal>(5) = mz - dot_m_z*R_DCM_z2; //Reject magnetic component on Z axis
-    qreal uy_norm = sqrt(
-            observation.at<qreal>(3)*observation.at<qreal>(3) +
-            observation.at<qreal>(4)*observation.at<qreal>(4) +
-            observation.at<qreal>(5)*observation.at<qreal>(5));
-    if(uy_norm > EPSILON){
-        observation.at<qreal>(3) /= uy_norm;
-        observation.at<qreal>(4) /= uy_norm;
-        observation.at<qreal>(5) /= uy_norm;
-    }
-
-    //Calculate predicted observation
     predictedObservation.at<qreal>(0) = R_DCM_z0*g;
     predictedObservation.at<qreal>(1) = R_DCM_z1*g;
     predictedObservation.at<qreal>(2) = R_DCM_z2*g;
-    predictedObservation.at<qreal>(3) = 2*(q1*q2 + q0*q3);
-    predictedObservation.at<qreal>(4) = q0*q0 - q1*q1 + q2*q2 - q3*q3;
-    predictedObservation.at<qreal>(5) = 2*(q2*q3 - q0*q1);
+    qreal R_g = R_g_k_0 + R_g_k_w*w_norm + R_g_k_g*std::fabs(g - a_norm);
+
+    //Magnetometer reading variables and observation
+    qreal R_y;
+    if(magDataReady){
+        qreal mx = m.x();
+        qreal my = m.y();
+        qreal mz = m.z();
+
+        qreal dot_m_z = mx*R_DCM_z0 + my*R_DCM_z1 + mz*R_DCM_z2;
+
+        qreal m_dip_angle = acos(dot_m_z/m_norm);
+        if(std::isnan(m_dip_angle))
+            m_dip_angle = 0.0f;
+
+        if(m_norm_mean < 0) //For fast startup
+            m_norm_mean = m_norm;
+        else
+            m_norm_mean = m_mean_alpha*m_norm_mean + (1.0f - m_mean_alpha)*m_norm;
+
+        if(m_dip_angle_mean < 0) //For fast startup
+            m_dip_angle_mean = m_dip_angle;
+        else
+            m_dip_angle_mean = m_mean_alpha*m_dip_angle_mean + (1.0f - m_mean_alpha)*m_dip_angle;
+
+        observation.at<qreal>(3) = mx - dot_m_z*R_DCM_z0; //Reject magnetic component on Z axis
+        observation.at<qreal>(4) = my - dot_m_z*R_DCM_z1; //Reject magnetic component on Z axis
+        observation.at<qreal>(5) = mz - dot_m_z*R_DCM_z2; //Reject magnetic component on Z axis
+        qreal uy_norm = sqrt(
+                observation.at<qreal>(3)*observation.at<qreal>(3) +
+                observation.at<qreal>(4)*observation.at<qreal>(4) +
+                observation.at<qreal>(5)*observation.at<qreal>(5));
+        if(uy_norm > EPSILON){
+            observation.at<qreal>(3) /= uy_norm;
+            observation.at<qreal>(4) /= uy_norm;
+            observation.at<qreal>(5) /= uy_norm;
+        }
+
+        predictedObservation.at<qreal>(3) = 2*(q1*q2 + q0*q3);
+        predictedObservation.at<qreal>(4) = q0*q0 - q1*q1 + q2*q2 - q3*q3;
+        predictedObservation.at<qreal>(5) = 2*(q2*q3 - q0*q1);
+
+        R_y = R_y_k_0 + R_y_k_w*w_norm + R_y_k_g*std::fabs(g - a_norm) +
+            R_y_k_n*std::fabs(m_norm - m_norm_mean) + R_y_k_d*std::fabs(m_dip_angle - m_dip_angle_mean);
+    }
+    else{
+        observation.at<qreal>(3) = 0.0f;
+        observation.at<qreal>(4) = 0.0f;
+        observation.at<qreal>(5) = 0.0f;
+        predictedObservation.at<qreal>(3) = 0.0f;
+        predictedObservation.at<qreal>(4) = 0.0f;
+        predictedObservation.at<qreal>(5) = 0.0f;
+
+        R_y = 1.0f;
+    }
 
     //Calculate observation matrix
-    filter.observationMatrix = (cv::Mat_<qreal>(6,4) <<
-            -2*g*q2,    +2*g*q3,    -2*g*q0,    +2*g*q1,
-            +2*g*q1,    +2*g*q0,    +2*g*q3,    +2*g*q2,
-            +2*g*q0,    -2*g*q1,    -2*g*q2,    +2*g*q3,
-            +2*q3,      +2*q2,      +2*q1,      +2*q0,
-            +2*q0,      -2*q1,      +2*q2,      -2*q3,
-            -2*q1,      -2*q0,      +2*q3,      +2*q2);
+    if(magDataReady)
+        filter.observationMatrix = (cv::Mat_<qreal>(6,4) <<
+                -2*g*q2,    +2*g*q3,    -2*g*q0,    +2*g*q1,
+                +2*g*q1,    +2*g*q0,    +2*g*q3,    +2*g*q2,
+                +2*g*q0,    -2*g*q1,    -2*g*q2,    +2*g*q3,
+                +2*q3,      +2*q2,      +2*q1,      +2*q0,
+                +2*q0,      -2*q1,      +2*q2,      -2*q3,
+                -2*q1,      -2*q0,      +2*q3,      +2*q2);
+    else
+        filter.observationMatrix = (cv::Mat_<qreal>(6,4) <<
+                -2*g*q2,    +2*g*q3,    -2*g*q0,    +2*g*q1,
+                +2*g*q1,    +2*g*q0,    +2*g*q3,    +2*g*q2,
+                +2*g*q0,    -2*g*q1,    -2*g*q2,    +2*g*q3,
+                0.0f,       0.0f,       0.0f,       0.0f,
+                0.0f,       0.0f,       0.0f,       0.0f,
+                0.0f,       0.0f,       0.0f,       0.0f);
 
     //Calculate observation noise
-    if(startupTime > 0){
+    if(startupTime > 0)
         filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
                 R_g_startup,    0.0f,           0.0f,           0.0f,           0.0f,           0.0f,
                 0.0f,           R_g_startup,    0.0f,           0.0f,           0.0f,           0.0f,
@@ -483,11 +513,7 @@ void IMU::calculateObservation()
                 0.0f,           0.0f,           0.0f,           R_y_startup,    0.0f,           0.0f,
                 0.0f,           0.0f,           0.0f,           0.0f,           R_y_startup,    0.0f,
                 0.0f,           0.0f,           0.0f,           0.0f,           0.0f,           R_y_startup);
-    }
-    else{
-        qreal R_g = R_g_k_0 + R_g_k_w*w_norm + R_g_k_g*std::fabs(g - a_norm);
-        qreal R_y = R_y_k_0 + R_y_k_w*w_norm + R_y_k_g*std::fabs(g - a_norm) +
-            R_y_k_n*std::fabs(m_norm - m_norm_mean) + R_y_k_d*std::fabs(m_dip_angle - m_dip_angle_mean);
+    else
         filter.observationNoiseCov = (cv::Mat_<qreal>(6,6) <<
                 R_g,    0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
                 0.0f,   R_g,    0.0f,   0.0f,   0.0f,   0.0f,
@@ -495,7 +521,9 @@ void IMU::calculateObservation()
                 0.0f,   0.0f,   0.0f,   R_y,    0.0f,   0.0f,
                 0.0f,   0.0f,   0.0f,   0.0f,   R_y,    0.0f,
                 0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   R_y);
-    }
+
+    //Consumed latest magnetometer data
+    magDataReady = false;
 }
 
 void IMU::calculateOutputRotation()
