@@ -4,7 +4,7 @@ TARGET = imuplugin
 CONFIG += qt plugin c++11 nostrip
 CONFIG -= android_install
 
-QT += qml quick sensors
+QT += qml quick sensors 3d
 
 QMAKE_CXXFLAGS -= -O2
 QMAKE_CXXFLAGS_RELEASE -= -O2
@@ -18,11 +18,13 @@ uri = IMU
 HEADERS += \
     src/ExtendedKalmanFilter.h \
     src/IMU.h \
+    src/MatrixTransform3D.h \
     src/IMUPlugin.h
 
 SOURCES += \
     src/ExtendedKalmanFilter.cpp \
     src/IMU.cpp \
+    src/MatrixTransform3D.cpp \
     src/IMUPlugin.cpp
 
 LIBS += -lopencv_core

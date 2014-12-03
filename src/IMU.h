@@ -36,6 +36,7 @@
 #include<QtSensors/QMagnetometerReading>
 #include<QVector3D>
 #include<QQuaternion>
+#include<QMatrix4x4>
 
 #include"ExtendedKalmanFilter.h"
 
@@ -48,6 +49,7 @@ Q_OBJECT
     Q_PROPERTY(QVector3D rotAxis READ getRotAxis NOTIFY stateChanged)
     Q_PROPERTY(qreal rotAngle READ getRotAngle NOTIFY stateChanged)
     Q_PROPERTY(QVector3D linearAcceleration READ getLinearAcceleration NOTIFY stateChanged)
+    Q_PROPERTY(bool startupComplete READ isStartupComplete NOTIFY startupCompleteChanged)
 
 public:
 
@@ -100,7 +102,7 @@ public:
      *
      * @return Current magnetometer identifier if exists and is opened, empty string if not
      */
-   QString getMagId();
+    QString getMagId();
 
      /**
      * @brief Sets the new magnetometer identifier and opens the corresponding device for data
@@ -109,7 +111,7 @@ public:
      *
      * @param accId New magnetometer identifier
      */
-   void setMagId(QString const& magId);
+    void setMagId(QString const& magId);
 
     /**
      * @brief Returns the latest estimated rotation's axis in angle-axis representation
@@ -131,6 +133,27 @@ public:
      * @return Latest estimated linear acceleration in m/s^2
      */
     QVector3D getLinearAcceleration();
+
+    /**
+     * @brief Gets whether the startup time is complete
+     *
+     * @return Whether the startup time is complete and the data is stable
+     */
+    bool isStartupComplete();
+
+    /**
+     * @brief Sets the last pose as the current pose for the displacement calculation
+     */
+    Q_INVOKABLE void resetDisplacement();
+
+    /**
+     * @brief Gets the displacement of a point in the local frame since the last call of this function or resetDisplacement()
+     *
+     * @param r Vector from the IMU location to the desired location in local rigid body frame
+     *
+     * @return Transform from last pose to current pose in the ground inertial frame
+     */
+    Q_INVOKABLE QMatrix4x4 getDisplacement(QVector3D const& r);
 
 public slots:
 
@@ -179,6 +202,11 @@ signals:
      * @brief Emitted when the estimated rotation and linear acceleration changes
      */
     void stateChanged();
+
+    /**
+     * @brief Emitted when the startup time ends
+     */
+    void startupCompleteChanged();
 
 private:
 
@@ -253,7 +281,12 @@ private:
     /**
      * @brief Calculates and stores the rotation in angle-axis representation
      */
-    void calculateOutputRotation();
+    void calculateOutputRotation(); //TODO: FIX NAME OF THIS
+
+    /**
+     * @brief Updates the displacement translation using the latest accelerometer data
+     */
+    void updateDisplacementTranslation();
 
     static const int CV_TYPE;       ///< CV_64F or CV_32f
     static const qreal EPSILON;     ///< FLT_EPSILON or DBL_EPSILON
@@ -300,6 +333,7 @@ private:
     QVector3D w;                    ///< Latest angular velocity in local frame in rad/s
     qreal wDeltaT;                  ///< Latest time slice for angular velocity
     QVector3D a;                    ///< Latest acceleration vector in local frame in m/s^2
+    qreal aDeltaT;                  ///< Latest time slice for linear acceleration
     QVector3D m;                    ///< Latest magnetic vector in local frame in milliTeslas
     bool magDataReady;              ///< Whether new magnetometer data arrived
 
@@ -310,13 +344,15 @@ private:
     qreal m_dip_angle_mean;         ///< Mean dip angle between magnetic vector and floor vector
     qreal m_mean_alpha;             ///< Smoothing factor for magnetic mean and dip angle mean estimate
 
-    /// @defgroup rotation Rotation of the device w.r.t ground inertial frame in angle-axis representation
+    /// @defgroup imuState State of the IMU frame w.r.t ground inertial frame
     /// @{
-    QVector3D rotAxis;
-    qreal rotAngle;
+    QVector3D rotAxis;              ///< Rotation axis in axis-angle representation
+    qreal rotAngle;                 ///< Rotation angle in axis-angle representation
+    QVector3D linearAcceleration;   ///< Linear acceleration w.r.t ground inertial frame in m/s^2
     /// @}
 
-    QVector3D linearAcceleration;   ///< Linear acceleration w.r.t ground inertial frame in m/s^2
+    QQuaternion prevRotation;       ///< Rotation of IMU frame in the global frame at the last displacement request
+    QVector3D dispTranslation;      ///< Translation of IMU frame in the global frame since the last displacement request
 };
 
 #endif /* IMU_H */

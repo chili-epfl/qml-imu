@@ -26,8 +26,10 @@
 #include"IMUPlugin.h"
 
 #include"IMU.h"
+#include"MatrixTransform3D.h"
 
 void IMUPlugin::registerTypes(const char* uri)
 {
     qmlRegisterType<IMU>(uri, 1, 0, "IMU");
+    qmlRegisterType<MatrixTransform3D>(uri, 1, 0, "MatrixTransform3D");
 }

@@ -274,8 +274,11 @@ void IMU::gyroReadingChanged()
             //Take care of startup time
             if(startupTime > 0){
                 startupTime -= wDeltaT;
-                if(startupTime < 0)
+                if(startupTime < 0){
+                    resetDisplacement();
                     qDebug() << "Startup is over";
+                    emit startupCompleteChanged();
+                }
             }
 
             w.setX(qDegreesToRadians(gyro->reading()->x())); //Angular velocity around x axis in rad/s
@@ -309,8 +312,9 @@ void IMU::accReadingChanged()
 {
     quint64 timestamp = acc->reading()->timestamp();
 
-    if(lastAccTimestamp > 0)
-        if(((qreal)(timestamp - lastAccTimestamp))/1000000.0f > 0){
+    if(lastAccTimestamp > 0){
+        aDeltaT = ((qreal)(timestamp - lastAccTimestamp))/1000000.0f;
+        if(aDeltaT > 0){
             accSilentCycles = 0;
             a.setX(acc->reading()->x()); //Linear acceleration along x axis in m/s^2
             a.setY(acc->reading()->y()); //Linear acceleration along y axis in m/s^2
@@ -332,7 +336,11 @@ void IMU::accReadingChanged()
 
             //Export rotation
             calculateOutputRotation();
+
+            //Update displacement translation
+            updateDisplacementTranslation();
         }
+    }
     lastAccTimestamp = timestamp;
 }
 
@@ -590,7 +598,7 @@ void IMU::calculateOutputRotation()
     }
 
     //Do not give output in the startup phase
-    if(startupTime > 0)
+    if(!isStartupComplete())
         return;
 
     //Calculate output rotation
@@ -619,6 +627,13 @@ void IMU::calculateOutputRotation()
     emit stateChanged();
 }
 
+inline void IMU::updateDisplacementTranslation()
+{
+    qreal* s = (qreal*)filter.statePost.ptr();
+    qreal deltaT22 = 0.5f*aDeltaT*aDeltaT;
+    dispTranslation += QVector3D(deltaT22*s[4], deltaT22*s[5], deltaT22*s[6]);
+}
+
 QVector3D IMU::getRotAxis()
 {
     return rotAxis;
@@ -632,6 +647,56 @@ qreal IMU::getRotAngle()
 QVector3D IMU::getLinearAcceleration()
 {
     return linearAcceleration;
+}
+
+bool IMU::isStartupComplete()
+{
+    return startupTime <= 0;
+}
+
+void IMU::resetDisplacement()
+{
+    qreal* s = (qreal*)filter.statePost.ptr();
+    prevRotation.setScalar(s[0]);
+    prevRotation.setVector(s[1], s[2], s[3]);
+    dispTranslation.setX(0.0f);
+    dispTranslation.setY(0.0f);
+    dispTranslation.setZ(0.0f);
+}
+
+QMatrix4x4 IMU::getDisplacement(QVector3D const& r)
+{
+    qreal* s = (qreal*)filter.statePost.ptr();
+    QQuaternion currentRotation(s[0], s[1], s[2], s[3]);
+
+    QVector3D rPrev = prevRotation.rotatedVector(r);
+    QVector3D rCurrent = currentRotation.rotatedVector(r);
+
+    QQuaternion outR = currentRotation * prevRotation.conjugate();
+    qreal q0 = outR.scalar();
+    qreal q1 = outR.x();
+    qreal q2 = outR.y();
+    qreal q3 = outR.z();
+    QVector3D outT = dispTranslation + rCurrent - rPrev;
+
+    //Save state for future
+    prevRotation = currentRotation;
+    dispTranslation.setX(0.0f);
+    dispTranslation.setY(0.0f);
+    dispTranslation.setZ(0.0f);
+
+    //return QMatrix4x4(
+    //        q0*q0 + q1*q1 - q2*q2 - q3*q3,  2*(q1*q2 + q0*q3),              2*(q1*q3 - q0*q2),              outT.x(),
+    //        2*(q1*q2 - q0*q3),              q0*q0 - q1*q1 + q2*q2 - q3*q3,  2*(q2*q3 + q0*q1),              outT.y(),
+    //        2*(q1*q3 + q0*q2),              2*(q2*q3 - q0*q1),              q0*q0 - q1*q1 - q2*q2 + q3*q3,  outT.z(),
+     //       0.0f,                           0.0f,                           0.0f,                           1.0f);
+     //
+     return QMatrix4x4(
+            1.0f, 0.0f, 0.0f, outT.x(),
+            0.0f, 1.0f, 0.0f, outT.y(),
+            0.0f, 0.0f, 1.0f, outT.z(),
+            0.0f, 0.0f, 0.0f, 1.0f);
+
 }
 
 void IMU::changeParent(QQuickItem* parent)
