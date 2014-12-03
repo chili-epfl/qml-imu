@@ -85,9 +85,9 @@ IMU::IMU(QQuickItem* parent) :
     //Just do assumptions for initial values
     process =           (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
     filter.statePre =   (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f);
-    statePreHistory =   (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+    statePreHistory =   (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
     filter.statePost =  (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f ,0.0f);
-    statePostHistory =  (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f);
+    statePostHistory =  (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
 
     observation =           (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, 9.81f, 0.0f, 1.0f, 0.0f);
     predictedObservation =  (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, 9.81f, 0.0f, 1.0f, 0.0f);
@@ -276,6 +276,7 @@ void IMU::gyroReadingChanged()
                 startupTime -= wDeltaT;
                 if(startupTime < 0){
                     resetDisplacement();
+                    velocity = QVector3D(0,0,0);
                     qDebug() << "Startup is over";
                     emit startupCompleteChanged();
                 }
@@ -422,22 +423,24 @@ void IMU::calculateProcess()
     const qreal az = a.z();
     const qreal g = 9.81f;
 
+    //Absolute rotation
     processPtr[0] = q0 + 0.5f*wDeltaT*(-q1*wx - q2*wy - q3*wz);
     processPtr[1] = q1 + 0.5f*wDeltaT*(+q0*wx - q3*wy + q2*wz);
     processPtr[2] = q2 + 0.5f*wDeltaT*(+q3*wx + q0*wy - q1*wz);
     processPtr[3] = q3 + 0.5f*wDeltaT*(-q2*wx + q1*wy + q0*wz);
 
+    //Absolute linear acceleration
     processPtr[4] = (q0*q0 + q1*q1 - q2*q2 - q3*q3)*ax + 2*(q1*q2 - q0*q3)*ay + 2*(q1*q3 + q0*q2)*az;
     processPtr[5] = 2*(q1*q2 + q0*q3)*ax + (q0*q0 - q1*q1 + q2*q2 - q3*q3)*ay + 2*(q2*q3 - q0*q1)*az;
     processPtr[6] = 2*(q1*q3 - q0*q2)*ax + 2*(q2*q3 + q0*q1)*ay + (q0*q0 - q1*q1 - q2*q2 + q3*q3)*az - g;
 
     normalizeQuat(process);
 
-    //Calculate transition matrix (the rightmost three columns are always zero)
-    /* F0[0] = +1.0f; */        F0[1] = -0.5f*wDeltaT*wx;   F0[2] = -0.5f*wDeltaT*wy;   F0[3] = -0.5f*wDeltaT*wz;
-    F1[0] = +0.5f*wDeltaT*wx;   /* F1[1] = +1.0f; */        F1[2] = +0.5f*wDeltaT*wz;   F1[3] = -0.5f*wDeltaT*wy;
-    F2[0] = +0.5f*wDeltaT*wy;   F2[1] = -0.5f*wDeltaT*wz;   /* F2[2] = +1.0f; */        F2[3] = +0.5f*wDeltaT*wx;
-    F3[0] = +0.5f*wDeltaT*wz;   F3[1] = +0.5f*wDeltaT*wy;   F3[2] = -0.5f*wDeltaT*wx;   /* F3[3] = +1.0f; */
+    //Calculate transition matrix
+    /* 1.0f */                  F0[1] = -0.5f*wDeltaT*wx;   F0[2] = -0.5f*wDeltaT*wy;   F0[3] = -0.5f*wDeltaT*wz;
+    F1[0] = +0.5f*wDeltaT*wx;   /* 1.0f */                  F1[2] = +0.5f*wDeltaT*wz;   F1[3] = -0.5f*wDeltaT*wy;
+    F2[0] = +0.5f*wDeltaT*wy;   F2[1] = -0.5f*wDeltaT*wz;   /* 1.0f */                  F2[3] = +0.5f*wDeltaT*wx;
+    F3[0] = +0.5f*wDeltaT*wz;   F3[1] = +0.5f*wDeltaT*wy;   F3[2] = -0.5f*wDeltaT*wx;  /* 1.0f */
 
     F4[0] = 2*(+q0*ax - q3*ay + q2*az); F4[1] = 2*(+q1*ax + q2*ay + q3*az); F4[2] = 2*(-q2*ax + q1*ay + q0*az); F4[3] = 2*(-q3*ax - q0*ay + q1*az);
     F5[0] = 2*(+q3*ax + q0*ay - q1*az); F5[1] = 2*(+q2*ax - q1*ay - q0*az); F5[2] = 2*(+q1*ax + q2*ay + q3*az); F5[3] = 2*(+q0*ax - q3*ay + q2*az);
@@ -627,11 +630,17 @@ void IMU::calculateOutputRotation()
     emit stateChanged();
 }
 
-inline void IMU::updateDisplacementTranslation()
+void IMU::updateDisplacementTranslation()
 {
+    if(!isStartupComplete())
+        return;
+
     qreal* s = (qreal*)filter.statePost.ptr();
+
     qreal deltaT22 = 0.5f*aDeltaT*aDeltaT;
-    dispTranslation += QVector3D(deltaT22*s[4], deltaT22*s[5], deltaT22*s[6]);
+    dispTranslation += aDeltaT*velocity + QVector3D(deltaT22*s[4], deltaT22*s[5], deltaT22*s[6]);
+
+    velocity += QVector3D(aDeltaT*s[4], aDeltaT*s[5], aDeltaT*s[6]);
 }
 
 QVector3D IMU::getRotAxis()
@@ -689,9 +698,9 @@ QMatrix4x4 IMU::getDisplacement(QVector3D const& r)
     //        q0*q0 + q1*q1 - q2*q2 - q3*q3,  2*(q1*q2 + q0*q3),              2*(q1*q3 - q0*q2),              outT.x(),
     //        2*(q1*q2 - q0*q3),              q0*q0 - q1*q1 + q2*q2 - q3*q3,  2*(q2*q3 + q0*q1),              outT.y(),
     //        2*(q1*q3 + q0*q2),              2*(q2*q3 - q0*q1),              q0*q0 - q1*q1 - q2*q2 + q3*q3,  outT.z(),
-     //       0.0f,                           0.0f,                           0.0f,                           1.0f);
-     //
-     return QMatrix4x4(
+    //       0.0f,                           0.0f,                           0.0f,                           1.0f);
+    //
+    return QMatrix4x4(
             1.0f, 0.0f, 0.0f, outT.x(),
             0.0f, 1.0f, 0.0f, outT.y(),
             0.0f, 0.0f, 1.0f, outT.z(),

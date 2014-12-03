@@ -351,6 +351,8 @@ private:
     QVector3D linearAcceleration;   ///< Linear acceleration w.r.t ground inertial frame in m/s^2
     /// @}
 
+    QVector3D velocity;             ///< Estimated linear velocity
+
     QQuaternion prevRotation;       ///< Rotation of IMU frame in the global frame at the last displacement request
     QVector3D dispTranslation;      ///< Translation of IMU frame in the global frame since the last displacement request
 };
