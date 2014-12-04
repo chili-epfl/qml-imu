@@ -26,10 +26,12 @@
 #include"IMUPlugin.h"
 
 #include"IMU.h"
+#include"AccelerometerBiasEstimator.h"
 #include"MatrixTransform3D.h"
 
 void IMUPlugin::registerTypes(const char* uri)
 {
     qmlRegisterType<IMU>(uri, 1, 0, "IMU");
+    qmlRegisterType<AccelerometerBiasEstimator>(uri, 1, 0, "AccelerometerBiasEstimator");
     qmlRegisterType<MatrixTransform3D>(uri, 1, 0, "MatrixTransform3D");
 }

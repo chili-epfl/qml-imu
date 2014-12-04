@@ -16,7 +16,7 @@
  */
 
 /**
- * @file cvcamera.h
+ * @file IMU.h
  * @brief QML wrapper for IMU processing
  * @author Ayberk Özgür
  * @version 1.0

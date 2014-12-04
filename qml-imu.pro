@@ -18,12 +18,14 @@ uri = IMU
 HEADERS += \
     src/ExtendedKalmanFilter.h \
     src/IMU.h \
+    src/AccelerometerBiasEstimator.h \
     src/MatrixTransform3D.h \
     src/IMUPlugin.h
 
 SOURCES += \
     src/ExtendedKalmanFilter.cpp \
     src/IMU.cpp \
+    src/AccelerometerBiasEstimator.cpp \
     src/MatrixTransform3D.cpp \
     src/IMUPlugin.cpp
 
