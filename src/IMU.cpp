@@ -63,7 +63,8 @@ IMU::IMU(QQuickItem* parent) :
     magDataReady(false),
     m_norm_mean(-1),
     m_dip_angle_mean(-1),
-    m_mean_alpha(0.99f)
+    m_mean_alpha(0.99f),
+    a_bias(0.397f, -0.008f, -0.005f)
 {
 
     //Open first encountered and valid gyroscope and accelerometer
@@ -317,9 +318,9 @@ void IMU::accReadingChanged()
         aDeltaT = ((qreal)(timestamp - lastAccTimestamp))/1000000.0f;
         if(aDeltaT > 0){
             accSilentCycles = 0;
-            a.setX(acc->reading()->x()); //Linear acceleration along x axis in m/s^2
-            a.setY(acc->reading()->y()); //Linear acceleration along y axis in m/s^2
-            a.setZ(acc->reading()->z()); //Linear acceleration along z axis in m/s^2
+            a.setX(acc->reading()->x() - a_bias.x()); //Linear acceleration along x axis in m/s^2
+            a.setY(acc->reading()->y() - a_bias.y()); //Linear acceleration along y axis in m/s^2
+            a.setZ(acc->reading()->z() - a_bias.z()); //Linear acceleration along z axis in m/s^2
             a_norm = a.length();
 
             //Calculate observation value, predicted observation value and observation matrix

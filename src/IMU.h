@@ -344,6 +344,8 @@ private:
     qreal m_dip_angle_mean;         ///< Mean dip angle between magnetic vector and floor vector
     qreal m_mean_alpha;             ///< Smoothing factor for magnetic mean and dip angle mean estimate
 
+    QVector3D a_bias;               ///< Accelerometer bias
+
     /// @defgroup imuState State of the IMU frame w.r.t ground inertial frame
     /// @{
     QVector3D rotAxis;              ///< Rotation axis in axis-angle representation
