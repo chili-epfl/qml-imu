@@ -64,7 +64,9 @@ IMU::IMU(QQuickItem* parent) :
     m_norm_mean(-1),
     m_dip_angle_mean(-1),
     m_mean_alpha(0.99f),
-    a_bias(0.397f, -0.008f, -0.005f)
+    a_bias(0.397f, -0.008f, -0.005f),
+    velocityWDecay(15.0f),
+    velocityADecay(8.0f)
 {
 
     //Open first encountered and valid gyroscope and accelerometer
@@ -638,10 +640,15 @@ void IMU::updateDisplacementTranslation()
 
     qreal* s = (qreal*)filter.statePost.ptr();
 
-    qreal deltaT22 = 0.5f*aDeltaT*aDeltaT;
-    dispTranslation += aDeltaT*velocity + QVector3D(deltaT22*s[4], deltaT22*s[5], deltaT22*s[6]);
+    QVector3D linearAcceleration(s[4], s[5], s[6]);
+    dispTranslation += aDeltaT*velocity + 0.5f*aDeltaT*aDeltaT*linearAcceleration;
+    velocity += aDeltaT*linearAcceleration;
 
-    velocity += QVector3D(aDeltaT*s[4], aDeltaT*s[5], aDeltaT*s[6]);
+    //Since velocity estimate random walks and is unbounded, we decay it when we assume the device is stationary
+    qreal la_norm = linearAcceleration.length();
+    qreal e_minus_w_norm = std::exp(-velocityWDecay*w_norm);
+    qreal e_minus_la_norm = std::exp(-velocityADecay*la_norm);
+    velocity = (1.0f - e_minus_w_norm)/(1.0f + e_minus_w_norm)*(1.0f - e_minus_la_norm)/(1.0f + e_minus_la_norm)*velocity;
 }
 
 QVector3D IMU::getRotAxis()

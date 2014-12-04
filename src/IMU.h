@@ -355,6 +355,9 @@ private:
 
     QVector3D velocity;             ///< Estimated linear velocity
 
+    qreal velocityWDecay;           ///< How quickly velocity estimate decays w.r.t angular velocity norm
+    qreal velocityADecay;           ///< How quickly velocity estimate decays w.r.t linear acceleration norm
+
     QQuaternion prevRotation;       ///< Rotation of IMU frame in the global frame at the last displacement request
     QVector3D dispTranslation;      ///< Translation of IMU frame in the global frame since the last displacement request
 };
