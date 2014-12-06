@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>src/main.qml</file>
+        <file>assets/tablet.dae</file>
+    </qresource>
+</RCC>
