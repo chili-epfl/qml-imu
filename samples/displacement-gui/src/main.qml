@@ -22,36 +22,76 @@ Window {
             return result;
         }
 
-        //Resets the position to zero and rotation to current rotation in global frame
-        function resetPose(){
-            resetDisplacement();
-            deviceTrans = Qt.vector3d(0,0,0);
-            deviceRot = Qt.quaternion(Math.cos(rotAngle/360*Math.PI),
-                                rotAxis.x*Math.sin(rotAngle/360*Math.PI),
-                                rotAxis.y*Math.sin(rotAngle/360*Math.PI),
-                                rotAxis.z*Math.sin(rotAngle/360*Math.PI));
+        //Rotates the vector v by quaternion q
+        function rotatedVector(q,v){
+            var result = Qt.vector3d(0,0,0);
+            result.x = (q.scalar*q.scalar + q.x*q.x - q.y*q.y - q.z*q.z)*v.x + 2*(q.x*q.y - q.scalar*q.z)*v.y + 2*(q.x*q.z + q.scalar*q.y)*v.z;
+            result.y = 2*(q.x*q.y + q.scalar*q.z)*v.x + (q.scalar*q.scalar - q.x*q.x + q.y*q.y - q.z*q.z)*v.y + 2*(q.y*q.z - q.scalar*q.x)*v.z;
+            result.z = 2*(q.x*q.z - q.scalar*q.y)*v.x + 2*(q.y*q.z + q.scalar*q.x)*v.y + (q.scalar*q.scalar - q.x*q.x - q.y*q.y + q.z*q.z)*v.z;
+            return result;
         }
 
-        //Adds latest displacement to device pose and resets the displacement for next interval
+        //Resets the device/point positions to origin and rotation to current rotation in global frame
+        function resetPose(){
+            resetDisplacement();
+
+            deviceTrans = Qt.vector3d(0,0,0);
+            deviceRot = Qt.quaternion(Math.cos(rotAngle/360*Math.PI),
+                                      rotAxis.x*Math.sin(rotAngle/360*Math.PI),
+                                      rotAxis.y*Math.sin(rotAngle/360*Math.PI),
+                                      rotAxis.z*Math.sin(rotAngle/360*Math.PI));
+
+            pointTrans = rotatedVector(deviceRot, pointR)
+            pointRot = qmul(deviceRot, pointOmega)
+        }
+
+        //Adds the latest displacement to poses and resets the displacement for next interval
         function addDisplacement(){
-            var deltaT = imu.getLinearDisplacement(Qt.vector3d(0,0,0));
-            imu.deviceTrans.x += deltaT.x;
-            imu.deviceTrans.y += deltaT.y;
-            imu.deviceTrans.z += deltaT.z;
+
+            //Device
+            var deltaTDevice = imu.getLinearDisplacement(Qt.vector3d(0,0,0));
+            imu.deviceTrans.x += deltaTDevice.x;
+            imu.deviceTrans.y += deltaTDevice.y;
+            imu.deviceTrans.z += deltaTDevice.z;
             imu.deviceRot = imu.qmul(imu.getAngularDisplacement(), imu.deviceRot);
             var norm = imu.deviceRot.scalar*imu.deviceRot.scalar + imu.deviceRot.x*imu.deviceRot.x + imu.deviceRot.y*imu.deviceRot.y + imu.deviceRot.z*imu.deviceRot.z;
             imu.deviceRot.scalar /= norm;
             imu.deviceRot.x /= norm;
             imu.deviceRot.y /= norm;
             imu.deviceRot.z /= norm;
+
+            //Point on device
+            var deltaTPoint = imu.getLinearDisplacement(pointR);
+            imu.pointTrans.x += deltaTPoint.x;
+            imu.pointTrans.y += deltaTPoint.y;
+            imu.pointTrans.z += deltaTPoint.z;
+            imu.pointRot = imu.qmul(imu.getAngularDisplacement(), imu.pointRot);
+            norm = imu.pointRot.scalar*imu.pointRot.scalar + imu.pointRot.x*imu.pointRot.x + imu.pointRot.y*imu.pointRot.y + imu.pointRot.z*imu.pointRot.z;
+            imu.pointRot.scalar /= norm;
+            imu.pointRot.x /= norm;
+            imu.pointRot.y /= norm;
+            imu.pointRot.z /= norm;
+
             imu.resetDisplacement();
         }
+
+        //Describes the static translation of the local point in device frame
+        property vector3d pointR: Qt.vector3d(0,0.076,0)
+
+        //Describes the static rotation of the local point in device frame
+        property quaternion pointOmega: Qt.quaternion(0,1,0,0)
 
         //Describes the translation of the device in global frame
         property vector3d deviceTrans
 
         //Describes the rotation of the device in global frame
         property quaternion deviceRot
+
+        //Describes the translation of the point on the device
+        property vector3d pointTrans
+
+        //Describes the rotation of the point on the device
+        property quaternion pointRot
     }
 
     //In 30ms intervals, add the linear and angular displacement to the device's 3D model
@@ -104,6 +144,22 @@ Window {
                     axis: Qt.vector3d(imu.deviceRot.x*sTheta2, imu.deviceRot.y*sTheta2, imu.deviceRot.z*sTheta2)
                 },
                 Translation3D{ translate:imu.deviceTrans }
+            ]
+        }
+
+        Item3D{
+            id: point
+            mesh: Mesh{ source: "/assets/arrow_x_y_z.dae" }
+            transform: [
+                Rotation3D{
+                    //Have to convert quaternion to angle-axis...
+                    property real vnorm: Math.sqrt(imu.pointRot.x*imu.pointRot.x + imu.pointRot.y*imu.pointRot.y + imu.pointRot.z*imu.pointRot.z)
+                    property real theta: 2*Math.atan2(vnorm, imu.pointRot.scalar)
+                    property real sTheta2: Math.sin(theta/2)
+                    angle: theta/Math.PI*180
+                    axis: Qt.vector3d(imu.pointRot.x*sTheta2, imu.pointRot.y*sTheta2, imu.pointRot.z*sTheta2)
+                },
+                Translation3D{ translate:imu.pointTrans }
             ]
         }
     }
