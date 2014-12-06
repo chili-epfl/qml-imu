@@ -2,5 +2,6 @@
     <qresource prefix="/">
         <file>src/main.qml</file>
         <file>assets/tablet.dae</file>
+        <file>assets/screen.jpg</file>
     </qresource>
 </RCC>
