@@ -147,13 +147,20 @@ public:
     Q_INVOKABLE void resetDisplacement();
 
     /**
-     * @brief Gets the displacement of a point in the local frame since the last call of this function or resetDisplacement()
+     * @brief Gets the position change of a point in the local frame since the last call to resetDisplacement()
      *
      * @param r Vector from the IMU location to the desired location in local rigid body frame
      *
-     * @return Transform from last pose to current pose in the ground inertial frame
+     * @return Position from last pose to current pose in the ground inertial frame
      */
-    Q_INVOKABLE QMatrix4x4 getDisplacement(QVector3D const& r);
+    Q_INVOKABLE QVector3D getLinearDisplacement(QVector3D const& r);
+
+    /**
+     * @brief Gets the rotation change of the local frame since the last call to resetDisplacement()
+     *
+     * @return Rotation from last pose to current pose in the ground inertial frame
+     */
+    Q_INVOKABLE QQuaternion getAngularDisplacement();
 
 public slots:
 

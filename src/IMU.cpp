@@ -622,6 +622,7 @@ void IMU::calculateOutputRotation()
         rotAxis.setX(s[1]*sTheta2);
         rotAxis.setY(s[2]*sTheta2);
         rotAxis.setZ(s[3]*sTheta2);
+        rotAxis.normalize();
         rotAngle = qRadiansToDegrees(rotAngle);
     }
 
@@ -681,39 +682,21 @@ void IMU::resetDisplacement()
     dispTranslation.setZ(0.0f);
 }
 
-QMatrix4x4 IMU::getDisplacement(QVector3D const& r)
+QVector3D IMU::getLinearDisplacement(QVector3D const& r)
 {
     qreal* s = (qreal*)filter.statePost.ptr();
     QQuaternion currentRotation(s[0], s[1], s[2], s[3]);
+    QVector3D outT = dispTranslation + prevRotation.rotatedVector(r) - currentRotation.rotatedVector(r);
+    return outT;
+}
 
-    QVector3D rPrev = prevRotation.rotatedVector(r);
-    QVector3D rCurrent = currentRotation.rotatedVector(r);
-
-    QQuaternion outR = currentRotation * prevRotation.conjugate();
-    qreal q0 = outR.scalar();
-    qreal q1 = outR.x();
-    qreal q2 = outR.y();
-    qreal q3 = outR.z();
-    QVector3D outT = dispTranslation + rCurrent - rPrev;
-
-    //Save state for future
-    prevRotation = currentRotation;
-    dispTranslation.setX(0.0f);
-    dispTranslation.setY(0.0f);
-    dispTranslation.setZ(0.0f);
-
-    //return QMatrix4x4(
-    //        q0*q0 + q1*q1 - q2*q2 - q3*q3,  2*(q1*q2 + q0*q3),              2*(q1*q3 - q0*q2),              outT.x(),
-    //        2*(q1*q2 - q0*q3),              q0*q0 - q1*q1 + q2*q2 - q3*q3,  2*(q2*q3 + q0*q1),              outT.y(),
-    //        2*(q1*q3 + q0*q2),              2*(q2*q3 - q0*q1),              q0*q0 - q1*q1 - q2*q2 + q3*q3,  outT.z(),
-    //       0.0f,                           0.0f,                           0.0f,                           1.0f);
-    //
-    return QMatrix4x4(
-            1.0f, 0.0f, 0.0f, outT.x(),
-            0.0f, 1.0f, 0.0f, outT.y(),
-            0.0f, 0.0f, 1.0f, outT.z(),
-            0.0f, 0.0f, 0.0f, 1.0f);
-
+QQuaternion IMU::getAngularDisplacement()
+{
+    qreal* s = (qreal*)filter.statePost.ptr();
+    QQuaternion currentRotation(s[0], s[1], s[2], s[3]);
+    QQuaternion outR = currentRotation*prevRotation.conjugate();
+    outR.normalize();
+    return outR;
 }
 
 void IMU::changeParent(QQuickItem* parent)
