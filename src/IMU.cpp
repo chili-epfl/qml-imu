@@ -305,8 +305,8 @@ void IMU::gyroReadingChanged()
             //Ensure a posteriori state reflects prediction in case measurement doesn't occur
             filter.statePre.copyTo(filter.statePost);
 
-            //Export rotation
-            calculateOutputRotation();
+            //Export rotation and linear acceleration
+            calculateOutput();
         }
     }
     lastGyroTimestamp = timestamp;
@@ -339,10 +339,10 @@ void IMU::accReadingChanged()
             shortestPathQuat(statePostHistory, filter.statePost);
 
             //Export rotation
-            calculateOutputRotation();
+            calculateOutput();
 
-            //Update displacement translation
-            updateDisplacementTranslation();
+            //Update displacement values
+            updateDisplacement();
         }
     }
     lastAccTimestamp = timestamp;
@@ -576,7 +576,7 @@ void IMU::calculateObservation()
     magDataReady = false;
 }
 
-void IMU::calculateOutputRotation()
+void IMU::calculateOutput()
 {
     //Check existence and health of sensors
     if(gyroId == ""){
@@ -626,7 +626,7 @@ void IMU::calculateOutputRotation()
         rotAngle = qRadiansToDegrees(rotAngle);
     }
 
-    //Output linear acceleration
+    //Calculate output linear acceleration
     linearAcceleration.setX(s[4]);
     linearAcceleration.setY(s[5]);
     linearAcceleration.setZ(s[6]);
@@ -634,7 +634,7 @@ void IMU::calculateOutputRotation()
     emit stateChanged();
 }
 
-void IMU::updateDisplacementTranslation()
+void IMU::updateDisplacement()
 {
     if(!isStartupComplete())
         return;

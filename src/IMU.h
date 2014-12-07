@@ -116,14 +116,14 @@ public:
     /**
      * @brief Returns the latest estimated rotation's axis in angle-axis representation
      *
-     * @return Latest estimated rotation's axis w.r.t ground inertial frame
+     * @return Latest estimated rotation's axis (unit norm) w.r.t ground inertial frame
      */
     QVector3D getRotAxis();
 
     /**
      * @brief Returns the latest estimated rotation's angle in angle-axis representation
      *
-     * @return Latest estimated rotation's angle w.r.t ground inertial frame
+     * @return Latest estimated rotation's angle in degrees w.r.t ground inertial frame
      */
     qreal getRotAngle();
 
@@ -286,14 +286,17 @@ private:
     void calculateObservation();
 
     /**
-     * @brief Calculates and stores the rotation in angle-axis representation
+     * @brief Calculates and stores the rotation and the linear acceleration in global ground inertial frame
      */
-    void calculateOutputRotation(); //TODO: FIX NAME OF THIS
+    void calculateOutput();
 
     /**
-     * @brief Updates the displacement translation using the latest accelerometer data
+     * @brief Updates the displacement values
+     *
+     * Updates the displacement translation and velocity estimate.
+     * Displacement rotation needs no update and can be calculated from the current device rotation.
      */
-    void updateDisplacementTranslation();
+    void updateDisplacement();
 
     static const int CV_TYPE;       ///< CV_64F or CV_32f
     static const qreal EPSILON;     ///< FLT_EPSILON or DBL_EPSILON
@@ -317,9 +320,9 @@ private:
     ExtendedKalmanFilter filter;    ///< Filter that estimates current tilt and linear acceleration in ground frame
 
     cv::Mat Q;                      ///< Base for process noise covariance matrix
-    cv::Mat process;                ///< Temporary matrix to hold the calculated process value, the rotation
-    cv::Mat observation;            ///< Temporary matrix to hold the gravity observation, assumed to be accelerometer value
-    cv::Mat predictedObservation;   ///< Temporary matrix to hold what we expect gravity vector is based on rotation
+    cv::Mat process;                ///< Temporary matrix to hold the calculated process value, i.e rotation and acceleration
+    cv::Mat observation;            ///< Temporary matrix to hold gravity and magnetometer observation
+    cv::Mat predictedObservation;   ///< Temporary matrix to hold gravity and magnetometer expectation based on current rotation
 
     cv::Mat statePreHistory;        ///< Previous value of the a priori state for quaternion sign correction
     cv::Mat statePostHistory;       ///< Previous value of the a posteriori state for quaternion sign correction
@@ -362,11 +365,11 @@ private:
 
     QVector3D velocity;             ///< Estimated linear velocity
 
-    qreal velocityWDecay;           ///< How quickly velocity estimate decays w.r.t angular velocity norm
-    qreal velocityADecay;           ///< How quickly velocity estimate decays w.r.t linear acceleration norm
+    qreal velocityWDecay;           ///< How quickly velocity estimate decays w.r.t angular velocity magnitude
+    qreal velocityADecay;           ///< How quickly velocity estimate decays w.r.t linear acceleration magnitude
 
-    QQuaternion prevRotation;       ///< Rotation of IMU frame in the global frame at the last displacement request
-    QVector3D dispTranslation;      ///< Translation of IMU frame in the global frame since the last displacement request
+    QQuaternion prevRotation;       ///< Rotation of IMU frame in the global frame at the last displacement reset
+    QVector3D dispTranslation;      ///< Translation of IMU frame in the global frame since the last displacement reset
 };
 
 #endif /* IMU_H */
