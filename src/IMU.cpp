@@ -694,7 +694,7 @@ QQuaternion IMU::getAngularDisplacement()
 {
     qreal* s = (qreal*)filter.statePost.ptr();
     QQuaternion currentRotation(s[0], s[1], s[2], s[3]);
-    QQuaternion outR = currentRotation*prevRotation.conjugate();
+    QQuaternion outR = prevRotation.conjugate()*currentRotation;
     outR.normalize();
     return outR;
 }

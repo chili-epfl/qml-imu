@@ -22,6 +22,11 @@ Window {
             return result;
         }
 
+        //Returns the inverse (complement) of the given quaternion
+        function qinv(q){
+            return Qt.quaternion(q.scalar, -q.x, -q.y, -q.z);
+        }
+
         //Rotates the vector v by quaternion q
         function rotatedVector(q,v){
             var result = Qt.vector3d(0,0,0);
@@ -47,32 +52,35 @@ Window {
 
         //Adds the latest displacement to poses and resets the displacement for next interval
         function addDisplacement(){
+            var R_CNew_C = getAngularDisplacement();
 
             //Device
-            var deltaTDevice = imu.getLinearDisplacement(Qt.vector3d(0,0,0));
-            imu.deviceTrans.x += deltaTDevice.x;
-            imu.deviceTrans.y += deltaTDevice.y;
-            imu.deviceTrans.z += deltaTDevice.z;
-            imu.deviceRot = imu.qmul(imu.getAngularDisplacement(), imu.deviceRot);
-            var norm = imu.deviceRot.scalar*imu.deviceRot.scalar + imu.deviceRot.x*imu.deviceRot.x + imu.deviceRot.y*imu.deviceRot.y + imu.deviceRot.z*imu.deviceRot.z;
-            imu.deviceRot.scalar /= norm;
-            imu.deviceRot.x /= norm;
-            imu.deviceRot.y /= norm;
-            imu.deviceRot.z /= norm;
+            var deltaTDevice = getLinearDisplacement(Qt.vector3d(0,0,0));
+            deviceTrans.x += deltaTDevice.x;
+            deviceTrans.y += deltaTDevice.y;
+            deviceTrans.z += deltaTDevice.z;
+            deviceRot = qmul(deviceRot, R_CNew_C);
+            var norm = deviceRot.scalar*deviceRot.scalar + deviceRot.x*deviceRot.x + deviceRot.y*deviceRot.y + deviceRot.z*deviceRot.z;
+            deviceRot.scalar /= norm;
+            deviceRot.x /= norm;
+            deviceRot.y /= norm;
+            deviceRot.z /= norm;
 
             //Point on device
-            var deltaTPoint = imu.getLinearDisplacement(pointR);
-            imu.pointTrans.x += deltaTPoint.x;
-            imu.pointTrans.y += deltaTPoint.y;
-            imu.pointTrans.z += deltaTPoint.z;
-            imu.pointRot = imu.qmul(imu.getAngularDisplacement(), imu.pointRot);
-            norm = imu.pointRot.scalar*imu.pointRot.scalar + imu.pointRot.x*imu.pointRot.x + imu.pointRot.y*imu.pointRot.y + imu.pointRot.z*imu.pointRot.z;
-            imu.pointRot.scalar /= norm;
-            imu.pointRot.x /= norm;
-            imu.pointRot.y /= norm;
-            imu.pointRot.z /= norm;
+            var deltaTPoint = getLinearDisplacement(pointR);
+            pointTrans.x += deltaTPoint.x;
+            pointTrans.y += deltaTPoint.y;
+            pointTrans.z += deltaTPoint.z;
+            pointRot = qmul(pointRot, qinv(pointOmega));
+            pointRot = qmul(pointRot, R_CNew_C);
+            pointRot = qmul(pointRot, pointOmega);
+            norm = pointRot.scalar*pointRot.scalar + pointRot.x*pointRot.x + pointRot.y*pointRot.y + pointRot.z*pointRot.z;
+            pointRot.scalar /= norm;
+            pointRot.x /= norm;
+            pointRot.y /= norm;
+            pointRot.z /= norm;
 
-            imu.resetDisplacement();
+            resetDisplacement();
         }
 
         //Describes the static translation of the local point in device frame
