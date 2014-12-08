@@ -45,9 +45,10 @@ Window {
                                       rotAxis.x*Math.sin(rotAngle/360*Math.PI),
                                       rotAxis.y*Math.sin(rotAngle/360*Math.PI),
                                       rotAxis.z*Math.sin(rotAngle/360*Math.PI));
+            r_G_C = qinv(deviceRot);
 
-            pointTrans = rotatedVector(deviceRot, pointR)
-            pointRot = qmul(deviceRot, pointOmega)
+            pointTrans = rotatedVector(deviceRot, pointR);
+            pointRot = qmul(deviceRot, pointOmega);
         }
 
         //Adds the latest displacement to poses and resets the displacement for next interval
@@ -55,7 +56,7 @@ Window {
             var R_CNew_C = getAngularDisplacement();
 
             //Device
-            var deltaTDevice = getLinearDisplacement(Qt.vector3d(0,0,0));
+            var deltaTDevice = rotatedVector(r_G_C, getLinearDisplacement(Qt.vector3d(0,0,0)));
             deviceTrans.x += deltaTDevice.x;
             deviceTrans.y += deltaTDevice.y;
             deviceTrans.z += deltaTDevice.z;
@@ -67,7 +68,7 @@ Window {
             deviceRot.z /= norm;
 
             //Point on device
-            var deltaTPoint = getLinearDisplacement(pointR);
+            var deltaTPoint = rotatedVector(r_G_C, getLinearDisplacement(pointR));
             pointTrans.x += deltaTPoint.x;
             pointTrans.y += deltaTPoint.y;
             pointTrans.z += deltaTPoint.z;
@@ -81,6 +82,11 @@ Window {
             pointRot.z /= norm;
 
             resetDisplacement();
+
+            r_G_C = qinv(Qt.quaternion(Math.cos(rotAngle/360*Math.PI),
+                                       rotAxis.x*Math.sin(rotAngle/360*Math.PI),
+                                       rotAxis.y*Math.sin(rotAngle/360*Math.PI),
+                                       rotAxis.z*Math.sin(rotAngle/360*Math.PI)));
         }
 
         //Describes the static translation of the local point in device frame
@@ -100,6 +106,8 @@ Window {
 
         //Describes the rotation of the point on the device
         property quaternion pointRot
+
+        property quaternion r_G_C
     }
 
     //In 30ms intervals, add the linear and angular displacement to the device's 3D model

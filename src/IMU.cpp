@@ -686,7 +686,7 @@ QVector3D IMU::getLinearDisplacement(QVector3D const& r)
 {
     qreal* s = (qreal*)filter.statePost.ptr();
     QQuaternion currentRotation(s[0], s[1], s[2], s[3]);
-    QVector3D outT = dispTranslation + currentRotation.rotatedVector(r) - prevRotation.rotatedVector(r);
+    QVector3D outT = prevRotation.rotatedVector(dispTranslation + currentRotation.rotatedVector(r) - prevRotation.rotatedVector(r));
     return outT;
 }
 
