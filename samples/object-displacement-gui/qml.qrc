@@ -1,0 +1,6 @@
+<RCC>
+    <qresource prefix="/">
+        <file>src/main.qml</file>
+        <file>assets/arrow_x_y_z.dae</file>
+    </qresource>
+</RCC>
