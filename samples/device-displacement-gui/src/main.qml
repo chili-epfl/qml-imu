@@ -107,6 +107,7 @@ Window {
         //Describes the rotation of the point on the device
         property quaternion pointRot
 
+        //Describes the previous rotation of the device frame in ground frame
         property quaternion r_C_G
     }
 

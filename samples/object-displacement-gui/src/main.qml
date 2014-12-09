@@ -55,9 +55,8 @@ Window {
 
             objectRot = qmul(qinv(R_CNew_C), objectRot);
 
-            //var deltaT = getLinearDisplacement(Qt.vector3d(0,0,0));
-            //console.log(deltaT);
-            //objectTrans = objectTrans.minus(deltaT);
+            var deltaT = rotatedVector(qinv(camOmega), getLinearDisplacement(Qt.vector3d(0,0,0)));
+            objectTrans = objectTrans.minus(deltaT);
             objectTrans = rotatedVector(qinv(R_CNew_C), objectTrans);
 
             resetDisplacement();
