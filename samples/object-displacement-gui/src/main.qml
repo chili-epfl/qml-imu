@@ -41,7 +41,7 @@ Window {
             resetDisplacement();
 
             var objectRotC0 = Qt.quaternion(0,1,0,0);
-            var objectTransC0 = Qt.vector3d(0,0,-0.5);
+            var objectTransC0 = Qt.vector3d(0,0,0.5);
 
             objectRot = objectRotC0;
             objectTrans = objectTransC0;
@@ -49,18 +49,22 @@ Window {
 
         //Adds the latest displacement to poses and resets the displacement for next interval
         function addDisplacement(){
-            var R_CNew_C = getAngularDisplacement();
+            var R_CNew_C = qinv(camOmega);
+            R_CNew_C = qmul(R_CNew_C, getAngularDisplacement());
+            R_CNew_C = qmul(R_CNew_C, camOmega);
+
             objectRot = qmul(qinv(R_CNew_C), objectRot);
 
-            var deltaT = getLinearDisplacement(Qt.vector3d(0,0,0));
+            //var deltaT = getLinearDisplacement(Qt.vector3d(0,0,0));
+            //console.log(deltaT);
             //objectTrans = objectTrans.minus(deltaT);
-            objectTrans = rotatedVector(R_CNew_C, objectTrans);
+            objectTrans = rotatedVector(qinv(R_CNew_C), objectTrans);
 
             resetDisplacement();
         }
 
         //Describes the static rotation of the device camera in device frame
-        property quaternion camOmega: Qt.quaternion(0,1,0,0)
+        property quaternion camOmega: Qt.quaternion(0,0,1,0) //??????????????????? should be (0,1,0,0)
 
         //Describes the translation of the external object in device frame
         property vector3d objectTrans
@@ -94,15 +98,15 @@ Window {
 
         camera: Camera {
             eye:        Qt.vector3d(0,0,0)
-            center:     Qt.vector3d(0,0,-1)
-            upVector:   Qt.vector3d(0,-1,0)
+            center:     Qt.vector3d(0,0,1)
+            upVector:   Qt.vector3d(0,1,0)
             fieldOfView: 38
             nearPlane:  0.001
         }
 
         light: Light{
             position:  Qt.vector3d(0,0,0)
-            direction: Qt.vector3d(0,0,1)
+            direction: Qt.vector3d(0,0,-1)
         }
 
         Item3D{
@@ -116,10 +120,6 @@ Window {
                     property real sTheta2: Math.sin(theta/2)
                     angle: theta/Math.PI*180
                     axis: Qt.vector3d(imu.objectRot.x*sTheta2, imu.objectRot.y*sTheta2, imu.objectRot.z*sTheta2)
-                },
-                Rotation3D{
-                    angle: 180
-                    axis: Qt.vector3d(0,0,1)
                 },
                 Translation3D{ translate:imu.objectTrans }
             ]
