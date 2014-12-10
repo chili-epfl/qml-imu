@@ -47,23 +47,28 @@ Window {
             objectTrans = objectTransC0;
         }
 
-        //Adds the latest displacement to poses and resets the displacement for next interval
+        //Adds the latest displacement to object pose and resets the displacement for next interval
         function addDisplacement(){
-            var R_CNew_C = qinv(camOmega);
-            R_CNew_C = qmul(R_CNew_C, getAngularDisplacement());
-            R_CNew_C = qmul(R_CNew_C, camOmega);
 
-            objectRot = qmul(qinv(R_CNew_C), objectRot);
+            //Need to rotate to device frame, delta rotate and rotate back to local camera frame
+            var R_C_CNew = qinv(camOmega);
+            R_C_CNew = qmul(R_C_CNew, qinv(getAngularDisplacement()));
+            R_C_CNew = qmul(R_C_CNew, camOmega);
 
-            var deltaT = rotatedVector(qinv(camOmega), getLinearDisplacement(Qt.vector3d(0,0,0)));
+            objectRot = qmul(R_C_CNew, objectRot);
+
+            var deltaT = rotatedVector(qinv(camOmega), getLinearDisplacement(camR));
             objectTrans = objectTrans.minus(deltaT);
-            objectTrans = rotatedVector(qinv(R_CNew_C), objectTrans);
+            objectTrans = rotatedVector(R_C_CNew, objectTrans);
 
             resetDisplacement();
         }
 
-        //Describes the static rotation of the device camera in device frame
+        //Describes the static rotation of the device camera in rigid body device frame
         property quaternion camOmega: Qt.quaternion(0,0,1,0) //??????????????????? should be (0,1,0,0)
+
+        //Describes the static translation of the device camera in rigid body device frame
+        property vector3d camR: Qt.vector3d(0,0.076,0)
 
         //Describes the translation of the external object in device frame
         property vector3d objectTrans
