@@ -141,10 +141,12 @@ public:
      */
     bool isStartupComplete();
 
+public slots:
+
     /**
      * @brief Sets the last pose as the current pose for the displacement calculation
      */
-    Q_INVOKABLE void resetDisplacement();
+    void resetDisplacement();
 
     /**
      * @brief Gets the position change of a point in the local frame since the last call to resetDisplacement()
@@ -153,16 +155,14 @@ public:
      *
      * @return Position from last pose to current pose in the ground inertial frame
      */
-    Q_INVOKABLE QVector3D getLinearDisplacement(QVector3D const& r);
+    QVector3D getLinearDisplacement(QVector3D const& r);
 
     /**
      * @brief Gets the rotation change of the local frame since the last call to resetDisplacement()
      *
      * @return Rotation from last pose to current pose in the ground inertial frame
      */
-    Q_INVOKABLE QQuaternion getAngularDisplacement();
-
-public slots:
+    QQuaternion getAngularDisplacement();
 
     /**
      * @brief Callback for a parent change event
