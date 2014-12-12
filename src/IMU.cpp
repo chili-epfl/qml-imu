@@ -672,6 +672,16 @@ bool IMU::isStartupComplete()
     return startupTime <= 0;
 }
 
+void IMU::setTargetTranslation(QVector3D const& targetTranslation)
+{
+    this->targetTranslation = targetTranslation;
+}
+
+void IMU::setTargetRotation(QQuaternion const& targetRotation)
+{
+    this->targetRotation = targetRotation;
+}
+
 void IMU::resetDisplacement()
 {
     qreal* s = (qreal*)filter.statePost.ptr();
@@ -682,19 +692,21 @@ void IMU::resetDisplacement()
     dispTranslation.setZ(0.0f);
 }
 
-QVector3D IMU::getLinearDisplacement(QVector3D const& r)
+QVector3D IMU::getLinearDisplacement()
 {
     qreal* s = (qreal*)filter.statePost.ptr();
     QQuaternion currentRotation(s[0], s[1], s[2], s[3]);
-    QVector3D outT = prevRotation.conjugate().rotatedVector(dispTranslation + currentRotation.rotatedVector(r)) - r;
-    return outT;
+    QVector3D outT =
+        prevRotation.conjugate().rotatedVector(dispTranslation + currentRotation.rotatedVector(targetTranslation))
+        - targetTranslation;
+    return targetRotation.conjugate().rotatedVector(outT);
 }
 
 QQuaternion IMU::getAngularDisplacement()
 {
     qreal* s = (qreal*)filter.statePost.ptr();
     QQuaternion currentRotation(s[0], s[1], s[2], s[3]);
-    QQuaternion outR = prevRotation.conjugate()*currentRotation;
+    QQuaternion outR = targetRotation.conjugate()*prevRotation.conjugate()*currentRotation*targetRotation;
     outR.normalize();
     return outR;
 }

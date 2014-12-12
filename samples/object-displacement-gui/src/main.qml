@@ -12,6 +12,12 @@ Window {
     IMU{
         id: imu
 
+        //Static translation of the device camera in rigid body device frame
+        targetTranslation: Qt.vector3d(0,0.04,0)
+
+        //Static rotation of the device camera in rigid body device frame
+        targetRotation: Qt.quaternion(0,0,1,0) //??????????????????? should be (0,1,0,0)
+
         //Adds the rotation described by q1 to the one described by q2
         function qmul(q1,q2){
             var result = Qt.quaternion(1,0,0,0);
@@ -49,26 +55,14 @@ Window {
 
         //Adds the latest displacement to object pose and resets the displacement for next interval
         function addDisplacement(){
-
-            //Need to rotate to device frame, delta rotate and rotate back to local camera frame
-            var R_C_CNew = qinv(camOmega);
-            R_C_CNew = qmul(R_C_CNew, qinv(getAngularDisplacement()));
-            R_C_CNew = qmul(R_C_CNew, camOmega);
-
+            var R_C_CNew = qinv(getAngularDisplacement());
             objectRot = qmul(R_C_CNew, objectRot);
 
-            var deltaT = rotatedVector(qinv(camOmega), getLinearDisplacement(camR));
-            objectTrans = objectTrans.minus(deltaT);
+            objectTrans = objectTrans.minus(getLinearDisplacement());
             objectTrans = rotatedVector(R_C_CNew, objectTrans);
 
             resetDisplacement();
         }
-
-        //Describes the static rotation of the device camera in rigid body device frame
-        property quaternion camOmega: Qt.quaternion(0,0,1,0) //??????????????????? should be (0,1,0,0)
-
-        //Describes the static translation of the device camera in rigid body device frame
-        property vector3d camR: Qt.vector3d(0,0.076,0)
 
         //Describes the translation of the external object in device frame
         property vector3d objectTrans

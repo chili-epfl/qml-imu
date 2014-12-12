@@ -22,11 +22,6 @@ Window {
             return result;
         }
 
-        //Returns the inverse (complement) of the given quaternion
-        function qinv(q){
-            return Qt.quaternion(q.scalar, -q.x, -q.y, -q.z);
-        }
-
         //Rotates the vector v by quaternion q
         function rotatedVector(q,v){
             var result = Qt.vector3d(0,0,0);
@@ -53,14 +48,17 @@ Window {
 
         //Adds the latest displacement to poses and resets the displacement for next interval
         function addDisplacement(){
-            var R_CNew_C = getAngularDisplacement();
 
             //Device
-            var deltaTDevice = rotatedVector(r_C_G, getLinearDisplacement(Qt.vector3d(0,0,0)));
+            targetTranslation = Qt.vector3d(0,0,0);
+            targetRotation = Qt.quaternion(1,0,0,0);
+
+            var deltaTDevice = rotatedVector(r_C_G, getLinearDisplacement());
             deviceTrans.x += deltaTDevice.x;
             deviceTrans.y += deltaTDevice.y;
             deviceTrans.z += deltaTDevice.z;
-            deviceRot = qmul(deviceRot, R_CNew_C);
+
+            deviceRot = qmul(deviceRot, getAngularDisplacement());
             var norm = deviceRot.scalar*deviceRot.scalar + deviceRot.x*deviceRot.x + deviceRot.y*deviceRot.y + deviceRot.z*deviceRot.z;
             deviceRot.scalar /= norm;
             deviceRot.x /= norm;
@@ -68,13 +66,15 @@ Window {
             deviceRot.z /= norm;
 
             //Point on device
-            var deltaTPoint = rotatedVector(r_C_G, getLinearDisplacement(pointR));
+            targetTranslation = pointR;
+            targetRotation = pointOmega;
+
+            var deltaTPoint = rotatedVector(r_C_G, rotatedVector(pointOmega, getLinearDisplacement()));
             pointTrans.x += deltaTPoint.x;
             pointTrans.y += deltaTPoint.y;
             pointTrans.z += deltaTPoint.z;
-            pointRot = qmul(pointRot, qinv(pointOmega));
-            pointRot = qmul(pointRot, R_CNew_C);
-            pointRot = qmul(pointRot, pointOmega);
+
+            pointRot = qmul(pointRot, getAngularDisplacement());
             norm = pointRot.scalar*pointRot.scalar + pointRot.x*pointRot.x + pointRot.y*pointRot.y + pointRot.z*pointRot.z;
             pointRot.scalar /= norm;
             pointRot.x /= norm;
@@ -182,7 +182,7 @@ Window {
     }
 
     Button {
-        text: "Reset pose"
+        text: "Reset translation"
         onClicked: imu.resetPose();
         style: ButtonStyle {
             label: Text {

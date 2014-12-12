@@ -49,6 +49,8 @@ Q_OBJECT
     Q_PROPERTY(QVector3D rotAxis READ getRotAxis NOTIFY stateChanged)
     Q_PROPERTY(qreal rotAngle READ getRotAngle NOTIFY stateChanged)
     Q_PROPERTY(QVector3D linearAcceleration READ getLinearAcceleration NOTIFY stateChanged)
+    Q_PROPERTY(QVector3D targetTranslation WRITE setTargetTranslation)
+    Q_PROPERTY(QQuaternion targetRotation WRITE setTargetRotation)
     Q_PROPERTY(bool startupComplete READ isStartupComplete NOTIFY startupCompleteChanged)
 
 public:
@@ -135,6 +137,20 @@ public:
     QVector3D getLinearAcceleration();
 
     /**
+     * @brief Sets the displacement calculation target's translation in rigid body inertial frame
+     *
+     * @param targetTranslation Vector from the IMU location to the desired location in local rigid body frame
+     */
+    void setTargetTranslation(QVector3D const& targetTranslation);
+
+    /**
+     * @brief Sets the displacement calculation target's rotation in rigid body inertial frame
+     *
+     * @param targetRotation Rotation of the desired target in local rigid body frame
+     */
+    void setTargetRotation(QQuaternion const& targetRotation);
+
+    /**
      * @brief Gets whether the startup time is complete
      *
      * @return Whether the startup time is complete and the data is stable
@@ -149,13 +165,11 @@ public slots:
     void resetDisplacement();
 
     /**
-     * @brief Gets the position change of a point in the local frame since the last call to resetDisplacement()
-     *
-     * @param r Vector from the IMU location to the desired location in local rigid body frame
+     * @brief Gets the position change of the target point since the last call to resetDisplacement()
      *
      * @return Position from last pose to current pose in the ground inertial frame
      */
-    QVector3D getLinearDisplacement(QVector3D const& r);
+    QVector3D getLinearDisplacement();
 
     /**
      * @brief Gets the rotation change of the local frame since the last call to resetDisplacement()
@@ -363,6 +377,8 @@ private:
     QVector3D linearAcceleration;   ///< Linear acceleration w.r.t ground inertial frame in m/s^2
     /// @}
 
+    QVector3D targetTranslation;    ///< Translation of target in local rigid body frame for which displacement will be calculated
+    QQuaternion targetRotation;     ///< Rotation of target in local rigid body frame for which displacement will be calculated
     QVector3D velocity;             ///< Estimated linear velocity
 
     qreal velocityWDecay;           ///< How quickly velocity estimate decays w.r.t angular velocity magnitude
