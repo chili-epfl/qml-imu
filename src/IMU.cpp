@@ -450,7 +450,7 @@ void IMU::calculateProcess()
     F6[0] = 2*(-q2*ax + q1*ay + q0*az); F6[1] = 2*(+q3*ax + q0*ay - q1*az); F6[2] = 2*(-q0*ax + q3*ay - q2*az); F6[3] = 2*(+q1*ax + q2*ay + q3*az);
 
     //Calculate process covariance matrix
-    filter.processNoiseCov = Q*wDeltaT;
+    filter.processNoiseCov = Q*wDeltaT; //TODO: We should not multiply the acceleration part with deltaT
 }
 
 void IMU::calculateObservation()
