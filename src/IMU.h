@@ -458,14 +458,14 @@ public slots:
     /**
      * @brief Gets the position change of the target point since the last call to resetDisplacement()
      *
-     * @return Position from last pose to current pose in the ground inertial frame
+     * @return Position of current pose in the last pose frame
      */
     QVector3D getLinearDisplacement();
 
     /**
      * @brief Gets the rotation change of the local frame since the last call to resetDisplacement()
      *
-     * @return Rotation from last pose to current pose in the ground inertial frame
+     * @return Rotation of current pose in the last pose frame
      */
     QQuaternion getAngularDisplacement();
 
