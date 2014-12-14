@@ -349,7 +349,7 @@ public:
      *
      * @return Current gyroscope identifier if exists and is opened, empty string if not
      */
-    QString getGyroId();
+    QString getGyroId(){ return gyroId; }
 
     /**
      * @brief Sets the new gyroscope identifier and opens the corresponding device for data
@@ -365,7 +365,7 @@ public:
      *
      * @return Current accelerometer identifier if exists and is opened, empty string if not
      */
-    QString getAccId();
+    QString getAccId(){ return accId; }
 
     /**
      * @brief Sets the new accelerometer identifier and opens the corresponding device for data
@@ -381,7 +381,7 @@ public:
      *
      * @return Current magnetometer identifier if exists and is opened, empty string if not
      */
-    QString getMagId();
+    QString getMagId(){ return magId; }
 
      /**
      * @brief Sets the new magnetometer identifier and opens the corresponding device for data
@@ -397,35 +397,35 @@ public:
      *
      * @return Latest estimated rotation's axis (unit norm) w.r.t ground inertial frame
      */
-    QVector3D getRotAxis();
+    QVector3D getRotAxis(){ return rotAxis; }
 
     /**
      * @brief Returns the latest estimated rotation's angle in angle-axis representation
      *
      * @return Latest estimated rotation's angle in degrees w.r.t ground inertial frame
      */
-    qreal getRotAngle();
+    qreal getRotAngle(){ return rotAngle; }
 
     /**
      * @brief Returns the latest estimated linear acceleration in ground inertial frame
      *
      * @return Latest estimated linear acceleration in m/s^2
      */
-    QVector3D getLinearAcceleration();
+    QVector3D getLinearAcceleration(){ return linearAcceleration; }
 
     /**
      * @brief Sets the displacement calculation target's translation in rigid body inertial frame
      *
      * @param targetTranslation Vector from the IMU location to the desired location in local rigid body frame
      */
-    void setTargetTranslation(QVector3D const& targetTranslation);
+    void setTargetTranslation(QVector3D const& targetTranslation){ this->targetTranslation = targetTranslation; }
 
     /**
      * @brief Sets the displacement calculation target's rotation in rigid body inertial frame
      *
      * @param targetRotation Rotation of the desired target in local rigid body frame
      */
-    void setTargetRotation(QQuaternion const& targetRotation);
+    void setTargetRotation(QQuaternion const& targetRotation){ this->targetRotation = targetRotation; }
 
     /**
      * @brief Gets whether the startup time is complete

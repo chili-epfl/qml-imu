@@ -208,11 +208,6 @@ bool IMU::openMag(QByteArray const& id)
     return success;
 }
 
-QString IMU::getGyroId()
-{
-    return gyroId;
-}
-
 void IMU::setGyroId(QString const& newId)
 {
     if(newId == gyroId)
@@ -227,11 +222,6 @@ void IMU::setGyroId(QString const& newId)
     qDebug() << "Error: Gyroscope with identifier " << newId << " not found.";
 }
 
-QString IMU::getAccId()
-{
-    return accId;
-}
-
 void IMU::setAccId(QString const& newId)
 {
     if(newId == accId)
@@ -244,11 +234,6 @@ void IMU::setAccId(QString const& newId)
         }
 
     qDebug() << "Error: Accelerometer with identifier " << newId << " not found.";
-}
-
-QString IMU::getMagId()
-{
-    return magId;
 }
 
 void IMU::setMagId(QString const& newId)
@@ -652,34 +637,9 @@ void IMU::updateDisplacement()
     velocity = (1.0f - e_minus_w_norm)/(1.0f + e_minus_w_norm)*(1.0f - e_minus_la_norm)/(1.0f + e_minus_la_norm)*velocity;
 }
 
-QVector3D IMU::getRotAxis()
-{
-    return rotAxis;
-}
-
-qreal IMU::getRotAngle()
-{
-    return rotAngle;
-}
-
-QVector3D IMU::getLinearAcceleration()
-{
-    return linearAcceleration;
-}
-
 bool IMU::isStartupComplete()
 {
     return startupTime <= 0;
-}
-
-void IMU::setTargetTranslation(QVector3D const& targetTranslation)
-{
-    this->targetTranslation = targetTranslation;
-}
-
-void IMU::setTargetRotation(QQuaternion const& targetRotation)
-{
-    this->targetRotation = targetRotation;
 }
 
 void IMU::resetDisplacement()
