@@ -322,12 +322,27 @@ Q_OBJECT
     Q_PROPERTY(QString gyroId READ getGyroId WRITE setGyroId NOTIFY gyroIdChanged)
     Q_PROPERTY(QString accId READ getAccId WRITE setAccId NOTIFY accIdChanged)
     Q_PROPERTY(QString magId READ getMagId WRITE setMagId NOTIFY magIdChanged)
+    Q_PROPERTY(QVector3D accBias MEMBER a_bias)
     Q_PROPERTY(QVector3D rotAxis READ getRotAxis NOTIFY stateChanged)
     Q_PROPERTY(qreal rotAngle READ getRotAngle NOTIFY stateChanged)
     Q_PROPERTY(QVector3D linearAcceleration READ getLinearAcceleration NOTIFY stateChanged)
-    Q_PROPERTY(QVector3D targetTranslation WRITE setTargetTranslation)
-    Q_PROPERTY(QQuaternion targetRotation WRITE setTargetRotation)
+    Q_PROPERTY(QVector3D targetTranslation MEMBER targetTranslation)
+    Q_PROPERTY(QQuaternion targetRotation MEMBER targetRotation)
+    Q_PROPERTY(qreal startupTime WRITE setStartupTime READ getStartupTime)
     Q_PROPERTY(bool startupComplete READ isStartupComplete NOTIFY startupCompleteChanged)
+    Q_PROPERTY(qreal R_g_startup MEMBER R_g_startup)
+    Q_PROPERTY(qreal R_y_startup MEMBER R_y_startup)
+    Q_PROPERTY(qreal R_g_k_0 MEMBER R_g_k_0)
+    Q_PROPERTY(qreal R_g_k_w MEMBER R_g_k_w)
+    Q_PROPERTY(qreal R_g_k_g MEMBER R_g_k_g)
+    Q_PROPERTY(qreal R_y_k_0 MEMBER R_y_k_0)
+    Q_PROPERTY(qreal R_y_k_w MEMBER R_y_k_w)
+    Q_PROPERTY(qreal R_y_k_g MEMBER R_y_k_g)
+    Q_PROPERTY(qreal R_y_k_n MEMBER R_y_k_n)
+    Q_PROPERTY(qreal R_y_k_d MEMBER R_y_k_d)
+    Q_PROPERTY(qreal m_mean_alpha MEMBER m_mean_alpha)
+    Q_PROPERTY(qreal velocityWDecay MEMBER velocityWDecay)
+    Q_PROPERTY(qreal velocityADecay MEMBER velocityADecay)
 
 public:
 
@@ -413,18 +428,18 @@ public:
     QVector3D getLinearAcceleration(){ return linearAcceleration; }
 
     /**
-     * @brief Sets the displacement calculation target's translation in rigid body inertial frame
+     * @brief Sets the startup time where measurements have much greater effect and restarts startup
      *
-     * @param targetTranslation Vector from the IMU location to the desired location in local rigid body frame
+     * @param startupTime Startup time in seconds, must be larger than 0 to have an effect
      */
-    void setTargetTranslation(QVector3D const& targetTranslation){ this->targetTranslation = targetTranslation; }
+    void setStartupTime(qreal startupTime);
 
     /**
-     * @brief Sets the displacement calculation target's rotation in rigid body inertial frame
+     * @brief Gets the current remaining portion of the startup time
      *
-     * @param targetRotation Rotation of the desired target in local rigid body frame
+     * @return Remaining portion of the startup time
      */
-    void setTargetRotation(QQuaternion const& targetRotation){ this->targetRotation = targetRotation; }
+    qreal getStartupTime();
 
     /**
      * @brief Gets whether the startup time is complete

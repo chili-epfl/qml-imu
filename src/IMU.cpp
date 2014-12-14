@@ -92,8 +92,9 @@ IMU::IMU(QQuickItem* parent) :
     filter.statePost =  (cv::Mat_<qreal>(7,1) << 1.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f ,0.0f);
     statePostHistory =  (cv::Mat_<qreal>(4,1) << 1.0f, 0.0f, 0.0f, 0.0f);
 
-    observation =           (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, 9.81f, 0.0f, 1.0f, 0.0f);
-    predictedObservation =  (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, 9.81f, 0.0f, 1.0f, 0.0f);
+    const qreal g = 9.81f;
+    observation =           (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, g, 0.0f, 1.0f, 0.0f);
+    predictedObservation =  (cv::Mat_<qreal>(6,1) << 0.0f, 0.0f, g, 0.0f, 1.0f, 0.0f);
 
     filter.transitionMatrix = (cv::Mat_<qreal>(7,7) <<
             1.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,   0.0f,
@@ -263,6 +264,7 @@ void IMU::gyroReadingChanged()
             if(startupTime > 0){
                 startupTime -= wDeltaT;
                 if(startupTime < 0){
+                    startupTime = 0;
                     resetDisplacement();
                     velocity = QVector3D(0,0,0);
                     qDebug() << "Startup is over";
@@ -635,6 +637,19 @@ void IMU::updateDisplacement()
     qreal e_minus_w_norm = std::exp(-velocityWDecay*w_norm);
     qreal e_minus_la_norm = std::exp(-velocityADecay*la_norm);
     velocity = (1.0f - e_minus_w_norm)/(1.0f + e_minus_w_norm)*(1.0f - e_minus_la_norm)/(1.0f + e_minus_la_norm)*velocity;
+}
+
+void IMU::setStartupTime(qreal startupTime)
+{
+    if(this->startupTime <= 0 && startupTime > 0){
+        this->startupTime = startupTime;
+        emit startupCompleteChanged();
+    }
+}
+
+qreal IMU::getStartupTime()
+{
+    return startupTime;
 }
 
 bool IMU::isStartupComplete()
