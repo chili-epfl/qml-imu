@@ -11,6 +11,7 @@ Window {
 
     IMU{
         id: imu
+        accBias: Qt.vector3d(0.397, -0.008, -0.005)
 
         //Static translation of the device camera in rigid body device frame
         targetTranslation: Qt.vector3d(0,0.04,0)

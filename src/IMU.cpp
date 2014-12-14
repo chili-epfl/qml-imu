@@ -64,7 +64,7 @@ IMU::IMU(QQuickItem* parent) :
     m_norm_mean(-1),
     m_dip_angle_mean(-1),
     m_mean_alpha(0.99f),
-    a_bias(0.397f, -0.008f, -0.005f),
+    a_bias(0, 0, 0),
     velocityWDecay(15.0f),
     velocityADecay(8.0f)
 {

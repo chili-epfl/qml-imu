@@ -11,6 +11,7 @@ Window {
 
     IMU{
         id: imu
+        accBias: Qt.vector3d(0.397, -0.008, -0.005)
 
         //Adds the rotation described by q1 to the one described by q2
         function qmul(q1,q2){

@@ -7,7 +7,10 @@ import IMU 1.0
 Window {
     visible: true
 
-    IMU{ id: imu }
+    IMU{
+        id: imu
+        accBias: Qt.vector3d(0.397, -0.008, -0.005)
+    }
 
     Viewport {
         anchors.fill: parent
