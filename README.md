@@ -68,7 +68,8 @@ Operation
 ### Overview
 
 At the core of the sensor fusion is a an extended Kalman filter estimating the
-device orientation and linear acceleration.
+device orientation and linear acceleration. [1] describes the fusion scheme
+used in this library.
 
 Inputs to the filter are gyroscope data (mandatory), accelerometer data
 (if present) and magnetometer data (if present). The main premise is that
@@ -250,8 +251,11 @@ R(t) = |-------------------------|
        \            |       (3x3)/
 ```
 
-where `I` is a 3x3 identity matrix. `R_g(t)` is the gravity measurement noise
-coefficient and is, by design, defined as follows:
+where `I` is a 3x3 identity matrix. The noise components in this matrix are
+designed according to the methodology described in [2].
+
+`R_g(t)` is the gravity measurement noise coefficient and is, by design,
+defined as follows:
 
 ```
 R_g(t) = R_g_k_0 +
@@ -373,4 +377,15 @@ factors is such that they are essentially 1 when the magnitudes are above some
 "threshold" value and smoothly drop to 0 when the magnitudes drop below this
 threshold. This drop could be made sharp or extended in time by adjusting this
 threshold via `w_decay` and `a_decay`.
+
+### References
+
+[1] S. Sabatelli, M. Galgani, L. Fanucci, A. Rocchi, *"A Double-Stage Kalman
+Filter for Orientation Tracking With an Integrated Processor in 9-D IMU"*,
+Instrumentation and Measurement, IEEE Transactions on, vol.62, no.3,
+pp.590-598, March 2013
+
+[2] D. Jurman, M. Jankovec, R. Kamnik, M. Topič, *"Calibration and Data Fusion
+Solution for the Miniature Attitude and Heading Reference System"*, Sensors and
+Actuators A: Physical, vol.138, no.2, pp.411-420, August 2007
 
