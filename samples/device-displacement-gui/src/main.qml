@@ -37,10 +37,7 @@ Window {
             resetDisplacement();
 
             deviceTrans = Qt.vector3d(0,0,0);
-            deviceRot = Qt.quaternion(Math.cos(rotAngle/360*Math.PI),
-                                      rotAxis.x*Math.sin(rotAngle/360*Math.PI),
-                                      rotAxis.y*Math.sin(rotAngle/360*Math.PI),
-                                      rotAxis.z*Math.sin(rotAngle/360*Math.PI));
+            deviceRot = rotQuat
             r_C_G = deviceRot;
 
             pointTrans = rotatedVector(deviceRot, pointR);
@@ -84,10 +81,7 @@ Window {
 
             resetDisplacement();
 
-            r_C_G = Qt.quaternion(Math.cos(rotAngle/360*Math.PI),
-                                  rotAxis.x*Math.sin(rotAngle/360*Math.PI),
-                                  rotAxis.y*Math.sin(rotAngle/360*Math.PI),
-                                  rotAxis.z*Math.sin(rotAngle/360*Math.PI));
+            r_C_G = rotQuat
         }
 
         //Describes the static translation of the local point in device frame

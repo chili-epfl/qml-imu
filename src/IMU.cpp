@@ -596,6 +596,12 @@ void IMU::calculateOutput()
 
     //Calculate output rotation
     qreal* s = (qreal*)filter.statePost.ptr();
+
+    rotQuat.setScalar(s[0]);
+    rotQuat.setX(s[1]);
+    rotQuat.setY(s[2]);
+    rotQuat.setZ(s[3]);
+
     rotAngle = sqrt(s[1]*s[1] + s[2]*s[2] + s[3]*s[3]);
     rotAngle = 2*atan2(rotAngle, s[0]);
     if(rotAngle < EPSILON){

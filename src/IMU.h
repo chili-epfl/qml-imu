@@ -48,6 +48,7 @@ Q_OBJECT
     Q_PROPERTY(QVector3D accBias MEMBER a_bias)
     Q_PROPERTY(QVector3D rotAxis READ getRotAxis NOTIFY stateChanged)
     Q_PROPERTY(qreal rotAngle READ getRotAngle NOTIFY stateChanged)
+    Q_PROPERTY(QQuaternion rotQuat READ getRotQuat NOTIFY stateChanged)
     Q_PROPERTY(QVector3D linearAcceleration READ getLinearAcceleration NOTIFY stateChanged)
     Q_PROPERTY(QVector3D targetTranslation MEMBER targetTranslation)
     Q_PROPERTY(QQuaternion targetRotation MEMBER targetRotation)
@@ -142,6 +143,13 @@ public:
      * @return Latest estimated rotation's angle in degrees w.r.t ground inertial frame
      */
     qreal getRotAngle(){ return rotAngle; }
+
+    /**
+     * @brief Returns the latest estimated rotation in unit quaternion representation
+     *
+     * @return Latest estimated rotation
+     */
+    QQuaternion getRotQuat(){ return rotQuat; }
 
     /**
      * @brief Returns the latest estimated linear acceleration in ground inertial frame
@@ -388,6 +396,7 @@ private:
     /// @{
     QVector3D rotAxis;              ///< Rotation axis in axis-angle representation
     qreal rotAngle;                 ///< Rotation angle in axis-angle representation
+    QQuaternion rotQuat;            ///< Rotation in unit qutaernion representation
     QVector3D linearAcceleration;   ///< Linear acceleration w.r.t ground inertial frame in m/s^2
     /// @}
 

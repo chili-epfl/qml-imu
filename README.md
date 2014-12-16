@@ -51,6 +51,7 @@ Sensor fusion outputs, all in the fixed ground frame:
 
 >  - **rotAxis** :              `QVector3D` - Latest estimated rotations's unit axis in angle-axis representation
 >  - **rotAngle** :             `qreal` - Latest estimated rotation's angle in degrees in angle-axis representation
+>  - **rotQuat** :              `QQuaternion` - Latest estimated rotation in unit quaternion representation
 >  - **linearAcceleration** :   `QVector3D` - Latest estimated linear acceleration in m/s^2
 
 Displacement related properties and invokables:
