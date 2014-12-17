@@ -624,6 +624,10 @@ void IMU::calculateOutput()
     linearAcceleration.setY(s[5]);
     linearAcceleration.setZ(s[6]);
 
+    //Calculate floor vector in target frame
+    targetFloorVector = rotQuat.conjugate().rotatedVector(QVector3D(0,0,1));
+    targetFloorVector = targetRotation.conjugate().rotatedVector(targetFloorVector);
+
     emit stateChanged();
 }
 

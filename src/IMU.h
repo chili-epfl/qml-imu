@@ -52,6 +52,7 @@ Q_OBJECT
     Q_PROPERTY(QVector3D linearAcceleration READ getLinearAcceleration NOTIFY stateChanged)
     Q_PROPERTY(QVector3D targetTranslation MEMBER targetTranslation)
     Q_PROPERTY(QQuaternion targetRotation MEMBER targetRotation)
+    Q_PROPERTY(QVector3D targetFloorVector READ getTargetFloorVector NOTIFY stateChanged)
     Q_PROPERTY(qreal startupTime WRITE setStartupTime READ getStartupTime)
     Q_PROPERTY(bool startupComplete READ isStartupComplete NOTIFY startupCompleteChanged)
     Q_PROPERTY(qreal R_g_startup MEMBER R_g_startup)
@@ -199,6 +200,13 @@ public slots:
      * @return Rotation of current pose in the last pose frame
      */
     QQuaternion getAngularDisplacement();
+
+    /**
+     * @brief Returns the latest floor vector
+     *
+     * @return Latest floor vector in the target frame
+     */
+    QVector3D getTargetFloorVector(){ return targetFloorVector; }
 
     /**
      * @brief Callback for a parent change event
@@ -402,6 +410,7 @@ private:
 
     QVector3D targetTranslation;    ///< Translation of target in local rigid body frame for which displacement will be calculated
     QQuaternion targetRotation;     ///< Rotation of target in local rigid body frame for which displacement will be calculated
+    QVector3D targetFloorVector;    ///< Unit floor vector in the target frame
     QVector3D velocity;             ///< Estimated linear velocity
 
     qreal velocityWDecay;           ///< How quickly velocity estimate decays w.r.t angular velocity magnitude
