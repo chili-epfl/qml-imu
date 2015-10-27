@@ -4,7 +4,7 @@ TARGET = imuplugin
 CONFIG += qt plugin c++11 nostrip
 CONFIG -= android_install
 
-QT += qml quick sensors 3d
+QT += qml quick sensors
 
 QMAKE_CXXFLAGS -= -O2
 QMAKE_CXXFLAGS_RELEASE -= -O2
