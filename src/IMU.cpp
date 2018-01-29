@@ -625,8 +625,8 @@ void IMU::calculateOutput()
     linearAcceleration.setZ(s[6]);
 
     //Calculate floor vector in target frame
-    targetFloorVector = rotQuat.conjugate().rotatedVector(QVector3D(0,0,1));
-    targetFloorVector = targetRotation.conjugate().rotatedVector(targetFloorVector);
+    targetFloorVector = rotQuat.conjugated().rotatedVector(QVector3D(0,0,1));
+    targetFloorVector = targetRotation.conjugated().rotatedVector(targetFloorVector);
 
     emit stateChanged();
 }
@@ -682,16 +682,16 @@ QVector3D IMU::getLinearDisplacement()
     qreal* s = (qreal*)filter.statePost.ptr();
     QQuaternion currentRotation(s[0], s[1], s[2], s[3]);
     QVector3D outT =
-        prevRotation.conjugate().rotatedVector(dispTranslation + currentRotation.rotatedVector(targetTranslation))
+        prevRotation.conjugated().rotatedVector(dispTranslation + currentRotation.rotatedVector(targetTranslation))
         - targetTranslation;
-    return targetRotation.conjugate().rotatedVector(outT);
+    return targetRotation.conjugated().rotatedVector(outT);
 }
 
 QQuaternion IMU::getAngularDisplacement()
 {
     qreal* s = (qreal*)filter.statePost.ptr();
     QQuaternion currentRotation(s[0], s[1], s[2], s[3]);
-    QQuaternion outR = targetRotation.conjugate()*prevRotation.conjugate()*currentRotation*targetRotation;
+    QQuaternion outR = targetRotation.conjugated()*prevRotation.conjugated()*currentRotation*targetRotation;
     outR.normalize();
     return outR;
 }
