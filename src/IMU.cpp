@@ -602,11 +602,12 @@ void IMU::calculateOutput()
     rotQuat.setY(s[2]);
     rotQuat.setZ(s[3]);
 
-    // send rotation to listeners
-    emit rotationChanged(rotQuat);
-
     rotAngle = sqrt(s[1]*s[1] + s[2]*s[2] + s[3]*s[3]);
     rotAngle = 2*atan2(rotAngle, s[0]);
+
+    // angle in radians
+    qreal rotAngleRadians = 0.0f;
+
     if(rotAngle < EPSILON){
         rotAxis.setX(0.0f);
         rotAxis.setY(0.0f);
@@ -619,8 +620,13 @@ void IMU::calculateOutput()
         rotAxis.setY(s[2]*sTheta2);
         rotAxis.setZ(s[3]*sTheta2);
         rotAxis.normalize();
+
+        rotAngleRadians = rotAngle;
         rotAngle = qRadiansToDegrees(rotAngle);
     }
+
+    // send rotation to listeners
+    emit rotationChanged(QQuaternion::fromAxisAndAngle(rotAxis, rotAngleRadians));
 
     //Calculate output linear acceleration
     linearAcceleration.setX(s[4]);
