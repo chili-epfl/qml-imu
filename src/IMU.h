@@ -259,6 +259,11 @@ signals:
      */
     void startupCompleteChanged();
 
+    /**
+     * @brief Emitted with stateChanged and contains the rotation
+     */
+    void rotationChanged(QQuaternion);
+
 private:
 
     /**

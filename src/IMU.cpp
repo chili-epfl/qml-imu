@@ -602,6 +602,9 @@ void IMU::calculateOutput()
     rotQuat.setY(s[2]);
     rotQuat.setZ(s[3]);
 
+    // send rotation to listeners
+    emit rotationChanged(rotQuat);
+
     rotAngle = sqrt(s[1]*s[1] + s[2]*s[2] + s[3]*s[3]);
     rotAngle = 2*atan2(rotAngle, s[0]);
     if(rotAngle < EPSILON){
