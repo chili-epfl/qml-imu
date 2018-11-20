@@ -1,0 +1,4 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="node1" href="$classAccelerometerBiasEstimator.html" title="Object that estimates the device&#39;s accelerometer bias. " alt="" coords="5,29,193,56"/>
+<area shape="rect" id="node2" href="$classIMU.html" title="Object that estimates the device&#39;s absolute orientation and linear acceleration through 9&#45;axis IMU me..." alt="" coords="241,29,288,56"/>
+</map>

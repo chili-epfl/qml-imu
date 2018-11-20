@@ -209,10 +209,3 @@ qreal AccelerometerBiasEstimator::getCovTrace()
 {
     return covTrace;
 }
-
-void AccelerometerBiasEstimator::changeParent(QQuickItem* parent)
-{
-    //FIXME: we probably need to disconnect the previous parent
-    //TODO: probably a good idea to stop the camera (and restart it if we are auto-starting in this context)
-}
-

@@ -1,0 +1,8 @@
+<map id="src/ExtendedKalmanFilter.h" name="src/ExtendedKalmanFilter.h">
+<area shape="rect" id="node2" href="$AccelerometerBiasEstimator_8h.html" title="QML wrapper for accelerometer bias estimation. " alt="" coords="12,80,233,107"/>
+<area shape="rect" id="node5" href="$ExtendedKalmanFilter_8cpp.html" title="Standard extended Kalman filter. " alt="" coords="257,80,455,107"/>
+<area shape="rect" id="node6" href="$IMU_8h.html" title="QML wrapper for IMU processing. " alt="" coords="479,80,559,107"/>
+<area shape="rect" id="node3" href="$AccelerometerBiasEstimator_8cpp.html" title="Implementation of the QML wrapper for accelerometer bias estimation. " alt="" coords="5,155,240,181"/>
+<area shape="rect" id="node4" href="$IMUPlugin_8cpp.html" title="Implementation of the object that exposes the IMU plugin components as QML objects. " alt="" coords="291,155,421,181"/>
+<area shape="rect" id="node7" href="$IMU_8cpp.html" title="Implementation of the QML wrapper for IMU processing. " alt="" coords="471,155,566,181"/>
+</map>

@@ -26,15 +26,19 @@
 #ifndef IMUPLUGIN_H
 #define IMUPLUGIN_H
 
-#include<QQmlExtensionPlugin>
-#include<qqml.h>
+#include <QQmlExtensionPlugin>
+#include <qqml.h>
+
+/** @cond DO_NOT_DOCUMENT */
 
 class IMUPlugin : public QQmlExtensionPlugin {
-Q_OBJECT
+    Q_OBJECT
     Q_PLUGIN_METADATA(IID "org.qt-project.Qt.QQmlExtensionInterface")
 
 public:
     void registerTypes(const char* uri);
 };
+
+/** @endcond */
 
 #endif /* IMUPLUGIN_H */

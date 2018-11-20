@@ -26,22 +26,36 @@
 #ifndef ACCELEROMETERBIASESTIMATOR_H
 #define ACCELEROMETERBIASESTIMATOR_H
 
-#include<QQuickItem>
-#include<QtSensors/QSensor>
-#include<QtSensors/QAccelerometer>
-#include<QtSensors/QAccelerometerReading>
-#include<QVector3D>
+#include <QQuickItem>
+#include <QtSensors/QSensor>
+#include <QtSensors/QAccelerometer>
+#include <QtSensors/QAccelerometerReading>
+#include <QVector3D>
 
-#include"ExtendedKalmanFilter.h"
+#include "ExtendedKalmanFilter.h"
 
+/**
+ * @brief Object that estimates the device's accelerometer bias
+ */
 class AccelerometerBiasEstimator : public QQuickItem {
-Q_OBJECT
+    /* *INDENT-OFF* */
+    Q_OBJECT
+    /* *INDENT-ON* */
+
     Q_DISABLE_COPY(AccelerometerBiasEstimator)
+
+    /** @brief Accelerometer sensor ID, set to the first found accelerometer's ID at startup and can be changed later */
     Q_PROPERTY(QString accId READ getAccId WRITE setAccId NOTIFY accIdChanged)
+
+    /** @brief Estimated accelerometer bias in local frame in m/s^2 */
     Q_PROPERTY(QVector3D bias READ getBias NOTIFY biasChanged)
+
+    /** @brief Trace of the covariance matrix estimate */
     Q_PROPERTY(qreal covTrace READ getCovTrace NOTIFY biasChanged)
 
 public:
+
+    /** @cond DO_NOT_DOCUMENT */
 
     /**
      * @brief Creates a new accelerometer bias estimator with the given QML parent
@@ -85,14 +99,7 @@ public:
      */
     qreal getCovTrace();
 
-public slots:
-
-    /**
-     * @brief Callback for a parent change event
-     *
-     * @param parent New parent
-     */
-    void changeParent(QQuickItem* parent);
+    /** @endcond */
 
 private slots:
 
@@ -103,6 +110,8 @@ private slots:
 
 signals:
 
+    /** @cond DO_NOT_DOCUMENT */
+
     /**
      * @brief Emitted when the accelerometer identifier changes
      */
@@ -112,6 +121,8 @@ signals:
      * @brief Emitted when the estimated accelerometer bias changes
      */
     void biasChanged();
+
+    /** @endcond */
 
 private:
 
@@ -156,4 +167,3 @@ private:
 };
 
 #endif /* ACCELEROMETERBIASESTIMATOR_H */
-

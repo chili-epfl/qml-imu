@@ -54,6 +54,8 @@
 
 #include <opencv2/core.hpp>
 
+/** @cond DO_NOT_DOCUMENT */
+
 /**
  * @brief Standard EKF, see http://en.wikipedia.org/wiki/Extended_Kalman_filter
  */
@@ -122,5 +124,6 @@ private:
     cv::Mat temp5;
 };
 
-#endif /* EXTENDEDKALMANFILTER_H */
+/** @endcond */
 
+#endif /* EXTENDEDKALMANFILTER_H */

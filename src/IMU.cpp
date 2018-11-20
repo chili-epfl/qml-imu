@@ -695,10 +695,3 @@ QQuaternion IMU::getAngularDisplacement()
     outR.normalize();
     return outR;
 }
-
-void IMU::changeParent(QQuickItem* parent)
-{
-    //FIXME: we probably need to disconnect the previous parent
-    //TODO: probably a good idea to stop the camera (and restart it if we are auto-starting in this context)
-}
-

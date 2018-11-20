@@ -26,50 +26,110 @@
 #ifndef IMU_H
 #define IMU_H
 
-#include<QQuickItem>
-#include<QtSensors/QSensor>
-#include<QtSensors/QAccelerometer>
-#include<QtSensors/QAccelerometerReading>
-#include<QtSensors/QGyroscope>
-#include<QtSensors/QGyroscopeReading>
-#include<QtSensors/QMagnetometer>
-#include<QtSensors/QMagnetometerReading>
-#include<QVector3D>
-#include<QQuaternion>
+#include <QQuickItem>
+#include <QtSensors/QSensor>
+#include <QtSensors/QAccelerometer>
+#include <QtSensors/QAccelerometerReading>
+#include <QtSensors/QGyroscope>
+#include <QtSensors/QGyroscopeReading>
+#include <QtSensors/QMagnetometer>
+#include <QtSensors/QMagnetometerReading>
+#include <QVector3D>
+#include <QQuaternion>
 
-#include"ExtendedKalmanFilter.h"
+#include "ExtendedKalmanFilter.h"
 
+/**
+ * @brief Object that estimates the device's absolute orientation and linear acceleration through 9-axis IMU measurements in real time
+ */
 class IMU : public QQuickItem {
-Q_OBJECT
+    /* *INDENT-OFF* */
+    Q_OBJECT
+    /* *INDENT-ON* */
+
     Q_DISABLE_COPY(IMU)
+
+    /** @brief Gyroscope sensor ID, set to the first found gyroscope's ID at startup and can be changed later */
     Q_PROPERTY(QString gyroId READ getGyroId WRITE setGyroId NOTIFY gyroIdChanged)
+
+    /** @brief Accelerometer sensor ID, set to the first found accelerometer's ID at startup and can be changed later */
     Q_PROPERTY(QString accId READ getAccId WRITE setAccId NOTIFY accIdChanged)
+
+    /** @brief Magnetometer sensor ID, set to the first found magnetometer's ID at startup and can be changed later */
     Q_PROPERTY(QString magId READ getMagId WRITE setMagId NOTIFY magIdChanged)
+
+    /** @brief Accelerometer bias to be subtracted from every raw measurement, default (0,0,0) */
     Q_PROPERTY(QVector3D accBias MEMBER a_bias)
+
+    /** @brief Latest estimated rotations's unit axis in angle-axis representation */
     Q_PROPERTY(QVector3D rotAxis READ getRotAxis NOTIFY stateChanged)
+
+    /** @brief Latest estimated rotation's angle in degrees in angle-axis representation */
     Q_PROPERTY(qreal rotAngle READ getRotAngle NOTIFY stateChanged)
+
+    /** @brief Latest estimated rotation in unit quaternion representation */
     Q_PROPERTY(QQuaternion rotQuat READ getRotQuat NOTIFY stateChanged)
+
+    /** @brief Latest estimated linear acceleration in m/s^2 */
     Q_PROPERTY(QVector3D linearAcceleration READ getLinearAcceleration NOTIFY stateChanged)
+
+    /** @brief Displacement calculation target's translation in local rigid body frame, with respect to the IMU */
     Q_PROPERTY(QVector3D targetTranslation MEMBER targetTranslation)
+
+    /** @brief Displacement calculation target's rotation in local rigid body frame, with respect to the IMU */
     Q_PROPERTY(QQuaternion targetRotation MEMBER targetRotation)
+
+    /** @brief Unit floor vector in the displacement calculation target's frame */
     Q_PROPERTY(QVector3D targetFloorVector READ getTargetFloorVector NOTIFY stateChanged)
+
+    /** @brief Length of the startup period in seconds where measurements affect the state more in order to settle quickly to the true orientation, default 1 */
     Q_PROPERTY(qreal startupTime WRITE setStartupTime READ getStartupTime)
+
+    /** @brief Whether the startup period ended */
     Q_PROPERTY(bool startupComplete READ isStartupComplete NOTIFY startupCompleteChanged)
+
+    /** @brief Diagonal entries of the measurement covariance matrix related to the gravity observation during startup, default 10^-1 */
     Q_PROPERTY(qreal R_g_startup MEMBER R_g_startup)
+
+    /** @brief Diagonal entries of the measurement covariance matrix related to the magnetometer observation during startup, default 10^-3 */
     Q_PROPERTY(qreal R_y_startup MEMBER R_y_startup)
+
+    /** @brief Constant coefficient in gravity measurement covariance diagonal entries, default 1.0 */
     Q_PROPERTY(qreal R_g_k_0 MEMBER R_g_k_0)
+
+    /** @brief Angular velocity magnitude coefficient in gravity measurement covariance diagonal entries, default 7.5 */
     Q_PROPERTY(qreal R_g_k_w MEMBER R_g_k_w)
+
+    /** @brief Acceleration magnitude deviation coefficient in gravity measurement covariance diagonal entries, default 10.0 */
     Q_PROPERTY(qreal R_g_k_g MEMBER R_g_k_g)
+
+    /** @brief Constant coefficient in magnetometer measurement covariance diagonal entries, default 10.0 */
     Q_PROPERTY(qreal R_y_k_0 MEMBER R_y_k_0)
+
+    /** @brief Angular velocity magnitude coefficient in magnetometer measurement covariance diagonal entries, default 7.5 */
     Q_PROPERTY(qreal R_y_k_w MEMBER R_y_k_w)
+
+    /** @brief Acceleration magnitude deviation coefficient in magnetometer measurement covariance diagonal entries, default 10.0 */
     Q_PROPERTY(qreal R_y_k_g MEMBER R_y_k_g)
+
+    /** @brief Magnetic vector magnitude deviation coefficient in magnetometer measurement covariance diagonal entries, default 20.0 */
     Q_PROPERTY(qreal R_y_k_n MEMBER R_y_k_n)
+
+    /** @brief Magnetic vector dip angle deviation coefficient in magnetometer measurement covariance diagonal entries, default 15.0 */
     Q_PROPERTY(qreal R_y_k_d MEMBER R_y_k_d)
+
+    /** @brief Smoothing factor when estimating magnetic vector mean magnitude and mean dip angle, between 0 and 1, default 0.99 */
     Q_PROPERTY(qreal m_mean_alpha MEMBER m_mean_alpha)
+
+    /** @brief Angular velocity magnitude decay coefficient in velocity estimate, larger values make decay threshold smaller and decay sharper, default 15.0 */
     Q_PROPERTY(qreal velocityWDecay MEMBER velocityWDecay)
+
+    /** @brief Acceleration magnitude decay coefficient in velocity estimate, larger values make decay threshold smaller and decay sharper, default 8.0 */
     Q_PROPERTY(qreal velocityADecay MEMBER velocityADecay)
 
 public:
+
+    /** @cond DO_NOT_DOCUMENT */
 
     /**
      * @brief Creates a new IMU processor with the given QML parent
@@ -115,14 +175,14 @@ public:
      */
     void setAccId(QString const& accId);
 
-     /**
+    /**
      * @brief Returns the current magnetometer identifier, if any
      *
      * @return Current magnetometer identifier if exists and is opened, empty string if not
      */
     QString getMagId(){ return magId; }
 
-     /**
+    /**
      * @brief Sets the new magnetometer identifier and opens the corresponding device for data
      *
      * Identifier is set to empty string if device can't be opened
@@ -180,6 +240,15 @@ public:
      */
     bool isStartupComplete();
 
+    /**
+     * @brief Returns the latest floor vector
+     *
+     * @return Latest floor vector in the target frame
+     */
+    QVector3D getTargetFloorVector(){ return targetFloorVector; }
+
+    /** @endcond */
+
 public slots:
 
     /**
@@ -201,20 +270,6 @@ public slots:
      */
     QQuaternion getAngularDisplacement();
 
-    /**
-     * @brief Returns the latest floor vector
-     *
-     * @return Latest floor vector in the target frame
-     */
-    QVector3D getTargetFloorVector(){ return targetFloorVector; }
-
-    /**
-     * @brief Callback for a parent change event
-     *
-     * @param parent New parent
-     */
-    void changeParent(QQuickItem* parent);
-
 private slots:
 
     /**
@@ -233,6 +288,8 @@ private slots:
     void magReadingChanged();
 
 signals:
+
+    /** @cond DO_NOT_DOCUMENT */
 
     /**
      * @brief Emitted when the gyroscope identifier changes
@@ -258,6 +315,8 @@ signals:
      * @brief Emitted when the startup time ends
      */
     void startupCompleteChanged();
+
+    /** @endcond */
 
 private:
 
@@ -400,13 +459,13 @@ private:
 
     QVector3D a_bias;               ///< Accelerometer bias
 
-    /// @defgroup imuState State of the IMU frame w.r.t ground inertial frame
-    /// @{
+    // State of the IMU frame w.r.t ground inertial frame
+    // {
     QVector3D rotAxis;              ///< Rotation axis in axis-angle representation
     qreal rotAngle;                 ///< Rotation angle in axis-angle representation
     QQuaternion rotQuat;            ///< Rotation in unit qutaernion representation
     QVector3D linearAcceleration;   ///< Linear acceleration w.r.t ground inertial frame in m/s^2
-    /// @}
+    // }
 
     QVector3D targetTranslation;    ///< Translation of target in local rigid body frame for which displacement will be calculated
     QQuaternion targetRotation;     ///< Rotation of target in local rigid body frame for which displacement will be calculated
@@ -421,4 +480,3 @@ private:
 };
 
 #endif /* IMU_H */
-
