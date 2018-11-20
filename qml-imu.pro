@@ -37,8 +37,8 @@ android {
     QMAKE_CXXFLAGS += -mfpu=neon -ftree-vectorize -ftree-vectorizer-verbose=1 -mfloat-abi=softfp
     QMAKE_CXXFLAGS_RELEASE += -mfpu=neon -ftree-vectorize -ftree-vectorizer-verbose=1 -mfloat-abi=softfp
 
-    INCLUDEPATH += $(ANDROID_STANDALONE_TOOLCHAIN)/sysroot/usr/share/opencv/sdk/native/jni/include
-    LIBS += -L$(ANDROID_STANDALONE_TOOLCHAIN)/sysroot/usr/share/opencv/sdk/native/libs/armeabi-v7a/
+    INCLUDEPATH += $(ANDROID_NDK_ROOT)/sysroot/usr/share/opencv/sdk/native/jni/include
+    LIBS += -L$(ANDROID_NDK_ROOT)/sysroot/usr/share/opencv/sdk/native/libs/armeabi-v7a/
 }
 
 OTHER_FILES += qmldir
@@ -51,4 +51,3 @@ unix {
     target.path = $$installPath
     INSTALLS += target qmldir
 }
-

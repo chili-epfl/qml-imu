@@ -1,17 +1,68 @@
 qml-imu
 =======
 
-qml-imu is a sensor fusion module that operates on gyroscope, accelerometer and
-magnetometer sensor data to estimate the device orientation and linear
-acceleration (without the gravity component) in the fixed global ground frame.
-The ground frame is defined to have its z axis point away from the floor and
-its y axis point towards magnetic north.
+`qml-imu` is a sensor fusion module that operates on gyroscope, accelerometer and magnetometer sensor data to estimate
+the device orientation and linear acceleration (without the gravity component) in the fixed global ground frame. The
+ground frame is defined to have its z axis point away from the floor and its y axis point towards magnetic north. The build is designed to run on Android.
 
-The following is required for qml-imu to work:
+`qml-imu` is tested with the following:
 
-  - Ubuntu `14.04`
-  - Qt `5.3.2`
-  - OpenCV `3.0.0-alpha`
+  - With Qt 5.11.0
+  - With OpenCV 3.3.1
+  - On Android 8.1.0 with Ubuntu 18.04 host with Android API 14, Android SDK Tools 26.1.1 and Android NDK r15c
+
+See [samples/](samples/) for example uses.
+
+See [doc/index.html](doc/index.html) for the API.
+
+Build [Android]
+---------------
+
+Download and unpack the Android SDK and NDK somewhere, e.g `opt/`.
+
+Clone, build and install OpenCV into the NDK sysroot (ignore the OpenCV Android SDK instructions):
+
+```
+$ git clone git@github.com:opencv/opencv.git
+$ cd opencv
+$ git checkout 3.3.1
+$ mkdir build-android && cd build-android
+$ export ANDROID_NDK_ROOT=<path-to-ndk>
+$ cmake .. \
+    -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_ROOT/build/cmake/android.toolchain.cmake \
+    -DCMAKE_INSTALL_PREFIX=$ANDROID_NDK_ROOT/sysroot/usr/share/opencv/ \
+    -DANDROID_NATIVE_API_LEVEL=14 \
+    -DANDROID_ABI=armeabi-v7a \
+    -DENABLE_CXX11=ON \
+    -DENABLE_NEON=ON \
+    -DENABLE_VFPV3=ON \
+    -DWITH_OPENCL=OFF \
+    -DWITH_CUDA=OFF \
+    -DBUILD_EXAMPLES=OFF \
+    -DBUILD_TESTS=OFF \
+    -DBUILD_PERF_TESTS=OFF \
+    -DBUILD_DOCS=OFF \
+    -DBUILD_ANDROID_EXAMPLES=OFF \
+    -DINSTALL_ANDROID_EXAMPLES=OFF \
+    -DBUILD_opencv_java=OFF \
+    -DBUILD_SHARED_LIBS=ON
+$ make -j 5
+$ make install
+```
+
+This will install OpenCV headers and libraries under `<path-to-ndk>/sysroot/usr/share/opencv/`. Then, build and install
+`qml-imu`:
+
+```
+$ cd qml-imu
+$ mkdir build-android && cd build-android
+$ export ANDROID_NDK_ROOT=<path-to-ndk>
+$ <qt-install-root>/<qt-version>/android_armv7/bin/qmake ..
+$ make -j 5
+$ make install
+```
+
+This will install the QML plugin inside the Qt sysroot, which you must have write access to. **Be aware that this is not a sandboxed installation.**
 
 QML API
 -------
@@ -388,4 +439,3 @@ pp.590-598, March 2013
 [2] D. Jurman, M. Jankovec, R. Kamnik, M. Topič, *"Calibration and Data Fusion
 Solution for the Miniature Attitude and Heading Reference System"*, Sensors and
 Actuators A: Physical, vol.138, no.2, pp.411-420, August 2007
-
