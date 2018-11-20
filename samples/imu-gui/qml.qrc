@@ -1,7 +1,8 @@
 <RCC>
     <qresource prefix="/">
         <file>src/main.qml</file>
-        <file>assets/arrow_x_y_z.dae</file>
-        <file>assets/arrow_z_cyan.dae</file>
+        <file>assets/arrow_y.obj</file>
+        <file>assets/arrow_x.obj</file>
+        <file>assets/arrow_z.obj</file>
     </qresource>
 </RCC>
