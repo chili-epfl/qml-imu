@@ -1,6 +1,6 @@
 TEMPLATE = app
 
-QT += qml quick sensors 3d 3dquick
+QT += qml quick sensors
 
 SOURCES += src/main.cpp
 
@@ -13,7 +13,6 @@ android {
     export(INSTALLS)
 
     ANDROID_EXTRA_LIBS = \
-        $$(ANDROID_STANDALONE_TOOLCHAIN)/sysroot/usr/share/opencv/sdk/native/libs/armeabi-v7a/libopencv_core.so \
-        $$[QT_INSTALL_QML]/IMU/libimuplugin.so
+        $$(ANDROID_NDK_ROOT)/sysroot/usr/share/opencv/sdk/native/libs/armeabi-v7a/libopencv_core.so
 }
 

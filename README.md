@@ -13,6 +13,8 @@ ground frame is defined to have its z axis point away from the floor and its y a
 
 See [samples/](samples/) for example uses.
 
+See [tools/](tools/) for utility apps.
+
 See [doc/index.html](doc/index.html) for the API.
 
 Build [Android]
